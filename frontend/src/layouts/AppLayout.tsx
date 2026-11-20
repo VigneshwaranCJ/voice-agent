@@ -10,7 +10,6 @@ const icon = (children: ReactNode) => (
 )
 const NavIcons = {
   overview: icon(<><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>),
-  voice: icon(<><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>),
   agents: icon(<><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>),
   knowledge: icon(<><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" /><path d="M4 19V5M8 7h7M8 11h5" /></>),
   calls: icon(<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />),
@@ -27,7 +26,6 @@ interface Item { to: string; label: string; icon: ReactNode; end?: boolean; grou
 function navItems(isAdmin: boolean, isPlatform: boolean): Item[] {
   return [
     { to: '/', label: 'Overview', icon: NavIcons.overview, end: true, group: 'Workspace', primary: true },
-    { to: '/voice', label: 'Voice', icon: NavIcons.voice, group: 'Workspace', primary: true },
     { to: '/agents', label: 'Agents', icon: NavIcons.agents, group: 'Workspace', primary: true },
     { to: '/knowledge', label: 'Knowledge', icon: NavIcons.knowledge, group: 'Workspace', primary: true },
     { to: '/calls', label: 'Calls', icon: NavIcons.calls, group: 'Activity', primary: true },

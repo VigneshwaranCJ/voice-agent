@@ -5,16 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && vite build --config vite.voice.config.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@met4citizen/talkinghead": "^1.8.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.5",
-    "three": "^0.186.1"
+    "sarvam-conv-ai-sdk": "0.0.42"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",

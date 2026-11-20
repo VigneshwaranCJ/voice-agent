@@ -51,7 +51,7 @@ def main() -> None:
         port=int(os.getenv("HTTP_PLATFORM_PORT") or os.getenv("ASPNETCORE_PORT") or "8000"),
         proxy_headers=True,
         forwarded_allow_ips="127.0.0.1",
-        ws="websockets",
+        ws="none",  # no WebSocket routes: voice runs on hosted Sarvam Voice Agents
         log_level=os.getenv("LOG_LEVEL", "info").lower(),
     )
 

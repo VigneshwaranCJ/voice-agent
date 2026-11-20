@@ -15,7 +15,7 @@ Multi-tenant AI customer-care voice platform on Sarvam AI. FastAPI backend (`bac
 - **The engine stays industry-agnostic.** Industry logic lives in `app/industries/<name>/` (module, tools, models). The engine only sees the `IndustryModule` interface.
 - **Tools** are registered with `@tool(...)` and Pydantic params. Writes that change bookings use `requires_confirmation=True`, which runs only after the *caller's* explicit yes.
 - **No PII without verification.** A phone number identifies; it doesn't verify. Never return stored customer data to the model on a phone match alone.
-- **WebSocket auth uses only voice tickets or widget tokens.** Never put a login JWT in a URL.
+- **Voice runs only on hosted Sarvam Voice Agents.** Their tool calls authenticate with a per-agent tool token (hashed); tenant and agent come from it. Never put a login JWT in a URL.
 - Emergency and other guard regexes must be word-bounded for Latin script.
 
 ## Gotchas

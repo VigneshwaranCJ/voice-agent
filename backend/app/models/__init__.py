@@ -2,7 +2,6 @@ from app.models.base import Base
 from app.models.calls import (
     AnalyticsEvent,
     AuditLog,
-    CallEvent,
     CallSession,
     Conversation,
     ConversationMessage,
@@ -17,16 +16,16 @@ from app.models.platform import (
     BusinessProfile,
     DatabaseConnection,
     Role,
+    SarvamAgentLink,
     SupportedLanguage,
     Tenant,
     ToolDefinition,
     User,
-    VoiceProfile,
 )
 
 __all__ = [
-    "Base", "Tenant", "Role", "User", "BusinessProfile", "SupportedLanguage", "VoiceProfile", "Agent",
-    "AgentConfiguration", "DatabaseConnection", "ToolDefinition", "KnowledgeDocument", "KnowledgeChunk",
-    "Customer", "Lead", "Appointment", "Conversation", "ConversationMessage", "CallSession", "CallEvent",
+    "Base", "Tenant", "Role", "User", "BusinessProfile", "SupportedLanguage", "Agent",
+    "AgentConfiguration", "SarvamAgentLink", "DatabaseConnection", "ToolDefinition", "KnowledgeDocument", "KnowledgeChunk",
+    "Customer", "Lead", "Appointment", "Conversation", "ConversationMessage", "CallSession",
     "ToolExecution", "EscalationRecord", "AnalyticsEvent", "AuditLog",
 ]

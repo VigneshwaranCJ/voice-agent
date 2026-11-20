@@ -46,16 +46,26 @@ class Settings(BaseSettings):
     # Sarvam AI
     sarvam_api_key: str | None = None
     sarvam_base_url: str = "https://api.sarvam.ai"
-    sarvam_ws_base_url: str = "wss://api.sarvam.ai"
-    sarvam_stt_model: str = "saaras:v4"
-    sarvam_tts_model: str = "bulbul:v4-flash"
     sarvam_llm_model: str = "sarvam-105b-conversations"
     sarvam_llm_reasoning_effort: str = "low"
+    # Hosted Sarvam Voice Agents (Samvaad). Their own API key (dashboard > Settings > API key), sent as X-API-Key
+    # when minting a call's signed WebSocket URL. The browser then talks to Sarvam directly, so this works on hosts
+    # without WebSocket support (e.g. Catalyst AppSail).
+    sarvam_agents_api_key: str | None = None
+    sarvam_agents_base_url: str = "https://apps.sarvam.ai/api/app-runtime/"
+    # Defaults for agents whose Sarvam link leaves a field blank (a link's own value always wins). Org and workspace
+    # are usually the same for every business on one Sarvam account; the app (agent) id is normally per agent.
+    sarvam_agents_org_id: str | None = None
+    sarvam_agents_workspace_id: str | None = None
+    sarvam_agents_app_id: str | None = None
+    # Send the business's context (name, persona, phone, hours, services) as agent_variables when a call starts.
+    # Enable only after declaring those variables in the Sarvam agent (see docs/deploy/SARVAM_VOICE.md).
+    sarvam_agents_send_context: bool = False
+    # Analytics API (same key): transcripts of finished calls, saved under Calls.
+    sarvam_agents_analytics_url: str = "https://apps.sarvam.ai/api/analytics/v1"
 
     # Engine limits
     llm_timeout_seconds: float = 20.0
-    # Voice: stream the LLM reply into speech sentence by sentence (set false to wait for the full reply).
-    llm_streaming: bool = True
     tool_timeout_seconds: float = 8.0
     max_tool_rounds: int = 4
     history_max_messages: int = 20

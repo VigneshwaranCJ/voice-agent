@@ -212,8 +212,8 @@ export default function Dashboard() {
           </h1>
           <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-slate-500">How your AI agents handled callers this month.</p>
         </div>
-        <Link to="/voice" className="btn px-5 py-2.5">
-          <span className="text-white">{Icons.phone}</span> Try a call
+        <Link to="/agents" className="btn px-5 py-2.5">
+          <span className="text-white">{Icons.phone}</span> Test your agent
         </Link>
       </div>
       <ErrorNote error={error} />

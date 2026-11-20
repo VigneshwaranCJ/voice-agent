@@ -23,16 +23,6 @@ export interface AgentConfig {
   llm_settings: Record<string, unknown>
 }
 
-export interface VoiceProfile {
-  id: string
-  name: string
-  tts_model: string
-  speakers: Record<string, string>
-  pace: number
-  temperature: number
-  sample_rate: number
-}
-
 export interface Agent {
   id: string
   tenant_id: string
@@ -40,12 +30,10 @@ export interface Agent {
   industry: string
   default_language: string
   languages: string[]
-  voice_profile_id: string | null
   public_widget_enabled: boolean
   is_active: boolean
   created_at: string
   config?: AgentConfig | null
-  voice_profile?: VoiceProfile | null
 }
 
 export interface ToolInfo { name: string; description: string; industry: string; requires_confirmation: boolean; is_write: boolean }

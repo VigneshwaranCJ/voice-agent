@@ -17,10 +17,9 @@ from app.industries.real_estate.models import Property, SalesExecutive
 from app.industries.registry import get_industry
 from app.knowledge.ingest import index_document
 from app.models import (
-    Agent, AgentConfiguration, BusinessProfile, KnowledgeDocument, Role, SupportedLanguage, Tenant, User, VoiceProfile,
+    Agent, AgentConfiguration, BusinessProfile, KnowledgeDocument, Role, SupportedLanguage, Tenant, User,
 )
 from app.security.crypto import hash_password
-from app.voice.voices import DEFAULT_SPEAKERS
 
 LANGS = [("en-IN", "English"), ("ta-IN", "Tamil"), ("hi-IN", "Hindi"), ("te-IN", "Telugu"), ("kn-IN", "Kannada"),
          ("ml-IN", "Malayalam"), ("bn-IN", "Bengali"), ("mr-IN", "Marathi"), ("gu-IN", "Gujarati"),
@@ -81,12 +80,10 @@ async def _tenant(db: AsyncSession, *, name: str, slug: str, industry: str, prof
     db.add(t)
     await db.flush()
     db.add(BusinessProfile(tenant_id=t.id, display_name=name, **profile))
-    vp = VoiceProfile(tenant_id=t.id, name="Default warm voice", speakers=dict(DEFAULT_SPEAKERS), pace=0.95)
-    db.add(vp)
     db.add(User(tenant_id=t.id, email=admin_email, full_name=f"{name} Admin", role="tenant_admin",
                 password_hash=hash_password(os.getenv("SEED_TENANT_PASSWORD", "ChangeMe-Tenant-123"))))
     await db.flush()
-    a = Agent(tenant_id=t.id, name=agent_name, industry=industry, voice_profile_id=vp.id, default_language="en-IN",
+    a = Agent(tenant_id=t.id, name=agent_name, industry=industry, default_language="en-IN",
               languages=["en-IN", "ta-IN"], public_widget_enabled=True)
     db.add(a)
     await db.flush()

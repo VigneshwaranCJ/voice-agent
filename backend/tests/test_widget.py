@@ -63,8 +63,9 @@ async def test_widget_endpoints_reject_other_credentials(client, db):
     assert client.post("/api/v1/public/chat", json={"text": "hi"}).status_code == 401
     admin_jwt = login(client, "admin@sunrise.local")["Authorization"].removeprefix("Bearer ")
     assert _chat(client, admin_jwt, "hi").status_code == 401  # a login token is not a widget session
-    ticket = client.post(f"/api/v1/agents/{agent.id}/voice-ticket", headers=login(client, "admin@sunrise.local")).json()["ticket"]
-    assert _chat(client, ticket, "hi").status_code == 401
+    tool_token = client.post(f"/api/v1/agents/{agent.id}/sarvam/token",
+                             headers=login(client, "admin@sunrise.local")).json()["token"]
+    assert _chat(client, tool_token, "hi").status_code == 401  # a Sarvam tool token is not a widget session
     # And a widget token can't use the admin API.
     token = _session(client, agent.id).json()["token"]
     assert client.get("/api/v1/agents", headers={"Authorization": f"Bearer {token}"}).status_code == 401
@@ -80,3 +81,27 @@ async def test_public_cors_is_open_but_admin_cors_is_not(client, db):
     admin = client.options("/api/v1/agents", headers={"Origin": "https://customer-site.example",
                                                       "Access-Control-Request-Method": "GET"})
     assert admin.headers.get("access-control-allow-origin") != "*"
+
+
+async def test_widget_works_with_simple_requests_no_preflight(client, db, llm):
+    """text/plain bodies with the token inside: what the widget sends so no CORS preflight is needed."""
+    import json as _json
+
+    agent = await agent_for(db, "sunrise-realty")
+    hospital = await agent_for(db, "carewell-hospital")
+    token = _session(client, agent.id).json()["token"]
+    plain = {"Content-Type": "text/plain;charset=UTF-8"}
+    llm.queue(say("Hello from Sunrise."))
+    r = client.post("/api/v1/public/chat", headers=plain, content=_json.dumps({"token": token, "text": "hi"}))
+    assert r.status_code == 200 and r.json()["reply"] == "Hello from Sunrise."
+    conv_id = r.json()["conversation_id"]
+    conv = (await db.execute(select(Conversation).where(Conversation.id == conv_id))).scalar_one()
+    assert conv.tenant_id == agent.tenant_id and conv.agent_id == agent.id
+    # A body token for another business's agent can't reach this one's chat, and junk tokens are refused.
+    t_hospital = _session(client, hospital.id).json()["token"]
+    r = client.post(f"/api/v1/public/chat/{conv_id}/end", headers=plain, content=_json.dumps({"token": t_hospital}))
+    assert r.json().get("already_ended") is True
+    assert client.post("/api/v1/public/chat", headers=plain, content='{"token": "junk", "text": "hi"}').status_code == 401
+    assert client.post("/api/v1/public/chat", headers=plain, content="not json").status_code == 422
+    r = client.post(f"/api/v1/public/chat/{conv_id}/end", headers=plain, content=_json.dumps({"token": token}))
+    assert r.json() == {"ok": True}

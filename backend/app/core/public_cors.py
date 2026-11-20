@@ -10,7 +10,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 PUBLIC_PREFIX = "/api/v1/public/"
 _ALLOW = [
     (b"access-control-allow-origin", b"*"),
-    (b"access-control-allow-methods", b"POST, OPTIONS"),
+    (b"access-control-allow-methods", b"GET, POST, OPTIONS"),
     (b"access-control-allow-headers", b"authorization, content-type"),
     (b"access-control-max-age", b"600"),
 ]

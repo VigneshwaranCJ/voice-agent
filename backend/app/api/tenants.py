@@ -4,10 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import DB, Principal, audit, get_principal, require_role, tenant_admin_scope, tenant_scope
 from app.industries.registry import INDUSTRIES, PLANNED
-from app.models import BusinessProfile, Tenant, User, VoiceProfile
-from app.schemas.api import BusinessProfileIn, BusinessProfileOut, TenantIn, TenantOut, VoiceProfileIn, VoiceProfileOut
+from app.models import BusinessProfile, Tenant, User
+from app.schemas.api import BusinessProfileIn, BusinessProfileOut, TenantIn, TenantOut
 from app.security.crypto import hash_password
-from app.voice.voices import DEFAULT_SPEAKERS, SUGGESTED
 
 router = APIRouter(tags=["tenants"])
 
@@ -35,7 +34,6 @@ async def create_tenant(body: TenantIn, request: Request, p: Principal = Depends
     db.add(t)
     await db.flush()
     db.add(BusinessProfile(tenant_id=t.id, display_name=body.name))
-    db.add(VoiceProfile(tenant_id=t.id, name="Default", speakers=dict(DEFAULT_SPEAKERS)))
     if body.admin_email and body.admin_password:
         if (await db.execute(select(User).where(User.email == body.admin_email.lower()))).scalar_one_or_none():
             raise HTTPException(409, "Admin email already registered")
@@ -66,34 +64,3 @@ async def update_profile(body: BusinessProfileIn, request: Request, p: Principal
     await audit(db, request, p, "update", "business_profile", bp.id)
     await db.commit()
     return bp
-
-
-@router.get("/voice-profiles", response_model=list[VoiceProfileOut])
-async def list_voice_profiles(p: Principal = Depends(tenant_scope), db: AsyncSession = DB):
-    return (await db.execute(select(VoiceProfile).where(VoiceProfile.tenant_id == p.tenant_id))).scalars().all()
-
-
-@router.get("/voice-profiles/voices")
-async def voice_catalog():
-    return {"model": "bulbul:v4-flash", "defaults": DEFAULT_SPEAKERS, "suggested": SUGGESTED}
-
-
-@router.post("/voice-profiles", response_model=VoiceProfileOut, status_code=201)
-async def create_voice_profile(body: VoiceProfileIn, p: Principal = Depends(tenant_admin_scope), db: AsyncSession = DB):
-    vp = VoiceProfile(tenant_id=p.tenant_id, **body.model_dump())
-    db.add(vp)
-    await db.commit()
-    return vp
-
-
-@router.put("/voice-profiles/{vp_id}", response_model=VoiceProfileOut)
-async def update_voice_profile(vp_id: str, body: VoiceProfileIn, p: Principal = Depends(tenant_admin_scope),
-                               db: AsyncSession = DB):
-    vp = (await db.execute(select(VoiceProfile).where(VoiceProfile.tenant_id == p.tenant_id,
-                                                      VoiceProfile.id == vp_id))).scalar_one_or_none()
-    if not vp:
-        raise HTTPException(404, "Voice profile not found")
-    for k, v in body.model_dump().items():
-        setattr(vp, k, v)
-    await db.commit()
-    return vp

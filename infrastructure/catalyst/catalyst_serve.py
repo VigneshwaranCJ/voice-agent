@@ -68,7 +68,7 @@ def main() -> None:
         "app.main:app",
         proxy_headers=True,
         forwarded_allow_ips="*",  # only Catalyst's front end can reach the instance
-        ws="websockets",
+        ws="none",  # no WebSocket routes: voice runs on hosted Sarvam Voice Agents
         log_level=os.getenv("LOG_LEVEL", "info").lower(),
     )
     uvicorn.Server(config).run(sockets=[SOCK])  # serve on the socket opened at startup

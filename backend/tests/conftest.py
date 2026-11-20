@@ -102,7 +102,7 @@ async def agent_for(db, slug: str) -> Agent:
 async def new_engine(db, slug: str, llm, channel="web_text"):
     agent = await agent_for(db, slug)
     bundle = await load_agent_bundle(db, agent.id)
-    state, _ = await start_conversation(db, bundle, channel)
+    state = await start_conversation(db, bundle, channel)
     return AgentEngine(db, bundle, llm=llm), state
 
 

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import DB, Principal, audit, tenant_scope
 from app.core.timeutil import as_utc
 from app.models import (
-    Appointment, BusinessProfile, CallEvent, CallSession, Conversation, ConversationMessage, EscalationRecord, Lead, ToolExecution,
+    Appointment, BusinessProfile, CallSession, Conversation, ConversationMessage, EscalationRecord, Lead, ToolExecution,
 )
 from app.schemas.api import ConversationOut, EscalationUpdateIn, LeadUpdateIn, MessageOut
 
@@ -65,12 +65,7 @@ async def conversation_detail(conv_id: str, p: Principal = Depends(tenant_scope)
     escalations = (await db.execute(select(EscalationRecord).where(
         EscalationRecord.tenant_id == p.tenant_id, EscalationRecord.conversation_id == conv_id))).scalars().all()
     call = (await db.execute(select(CallSession).where(
-        CallSession.tenant_id == p.tenant_id, CallSession.conversation_id == conv_id))).scalar_one_or_none()
-    events = []
-    if call:
-        events = (await db.execute(select(CallEvent).where(CallEvent.tenant_id == p.tenant_id,
-                                                           CallEvent.call_session_id == call.id)
-                                   .order_by(CallEvent.created_at))).scalars().all()
+        CallSession.tenant_id == p.tenant_id, CallSession.conversation_id == conv_id))).scalars().first()
     return {
         "conversation": ConversationOut.model_validate(conv),
         "messages": [MessageOut.model_validate(m) for m in msgs],
@@ -80,7 +75,6 @@ async def conversation_detail(conv_id: str, p: Principal = Depends(tenant_scope)
                          "status": e.status, "at": e.created_at} for e in escalations],
         "call": {"duration_seconds": call.duration_seconds, "status": call.status, "end_reason": call.end_reason,
                  "recording_consent": call.recording_consent} if call else None,
-        "call_events": [{"type": e.event_type, "payload": e.payload, "at": e.created_at} for e in events],
     }
 
 

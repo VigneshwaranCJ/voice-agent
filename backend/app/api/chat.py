@@ -1,27 +1,30 @@
-"""Web voice channel (WebSocket), text test console, and public widget sessions."""
+"""Text chat: the dashboard's test console and the public website widget (plain HTTP).
 
-import asyncio
-import contextlib
+Voice calls run on hosted Sarvam Voice Agents (app/api/sarvam_agents.py).
+"""
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
+import json
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.context.manager import load_agent_bundle
 from app.context.state import get_state_store
 from app.core.config import get_settings
-from app.core.database import SessionLocal
 from app.llm.sarvam import SarvamLLM, get_llm
 from app.core.deps import DB, Principal, tenant_scope
-from app.core.logging import log
 from app.models import Agent, Conversation
 from app.orchestration.engine import AgentEngine, greeting_for
 from app.orchestration.lifecycle import end_conversation, start_conversation
 from app.schemas.api import ChatIn, ChatOut
 from app.security.crypto import create_access_token, decode_token
-from app.voice.session import VoiceSession
+from app.api.sarvam_agents import (
+    mint_session, public_voice_info, sarvam_link_for, save_transcript, valid_interaction_id,
+)
 
-router = APIRouter(tags=["voice"])
+router = APIRouter(tags=["chat"])
 
 
 @router.post("/public/agents/{agent_id}/session")
@@ -35,14 +38,14 @@ async def widget_session(agent_id: str, db: AsyncSession = DB):
     bundle = await load_agent_bundle(db, a.id, tenant_id=a.tenant_id)
     greeting = greeting_for(bundle, a.default_language) if bundle else ""
     business = bundle.profile.display_name if bundle and bundle.profile else ""
-    return {"token": token, "expires_in": 15 * 60,
+    return {"token": token, "expires_in": 15 * 60, "voice": await public_voice_info(db, a),
             "agent": {"id": a.id, "name": a.name, "languages": a.languages, "default_language": a.default_language,
                       "persona": bundle.config.persona_name if bundle else "", "business": business, "greeting": greeting}}
 
 
-async def _widget_agent(db: AsyncSession, authorization: str | None) -> Agent:
+async def widget_agent_for_token(db: AsyncSession, token: str | None) -> Agent:
     """The agent a widget token was issued for. Tenant and agent come from the token, never the request body."""
-    token = (authorization or "").removeprefix("Bearer ").strip()
+    token = (token or "").removeprefix("Bearer ").strip()
     try:
         c = decode_token(token)
     except Exception:
@@ -56,105 +59,85 @@ async def _widget_agent(db: AsyncSession, authorization: str | None) -> Agent:
     return a
 
 
+async def _widget_body(request: Request) -> dict:
+    """The widget's JSON body, whatever its Content-Type.
+
+    The widget runs on customers' sites. Some hosts (e.g. Catalyst AppSail's gateway) answer CORS preflights
+    themselves and drop them, so the widget sends "simple" requests: text/plain bodies with the token inside,
+    no custom headers. The Authorization header still works for clients that can use it.
+    """
+    raw = await request.body()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        raise HTTPException(422, "Body must be JSON") from None
+    if not isinstance(data, dict):
+        raise HTTPException(422, "Body must be a JSON object")
+    return data
+
+
 @router.post("/public/chat", response_model=ChatOut)
-async def widget_chat(body: ChatIn, authorization: str | None = Header(default=None), db: AsyncSession = DB):
+async def widget_chat(request: Request, authorization: str | None = Header(default=None), db: AsyncSession = DB):
     """Text chat for the website widget (plain HTTP, so it works on hosts without WebSocket support)."""
-    a = await _widget_agent(db, authorization)
+    data = await _widget_body(request)
+    a = await widget_agent_for_token(db, authorization or data.pop("token", None))
+    try:
+        body = ChatIn.model_validate(data)
+    except ValidationError as e:
+        raise HTTPException(422, e.errors(include_url=False, include_context=False)) from None
     return await _text_turn(db, a.id, a.tenant_id, body, channel="widget")
 
 
 @router.post("/public/chat/{conv_id}/end")
-async def widget_chat_end(conv_id: str, authorization: str | None = Header(default=None), db: AsyncSession = DB):
+async def widget_chat_end(conv_id: str, request: Request, authorization: str | None = Header(default=None),
+                          db: AsyncSession = DB):
     """Close a widget chat so it is summarised and shows as completed under Calls."""
-    a = await _widget_agent(db, authorization)
+    data = await _widget_body(request)
+    a = await widget_agent_for_token(db, authorization or data.get("token"))
     state = await get_state_store().get(conv_id)
     if not state or state.tenant_id != a.tenant_id or state.agent_id != a.id:
         return {"ok": True, "already_ended": True}  # nothing to close (or not this widget's chat)
-    await end_conversation(db, state, None, "ended_by_user")
+    await end_conversation(db, state, "ended_by_user")
     return {"ok": True}
 
 
-@router.post("/agents/{agent_id}/voice-ticket")
-async def voice_ticket(agent_id: str, p: Principal = Depends(tenant_scope), db: AsyncSession = DB):
-    """One-minute ticket for opening the voice WebSocket from the dashboard.
+@router.get("/public/sarvam/{agent_id}/{token}/orgs/{org_id}/workspaces/{workspace_id}/apps/{app_id}/url")
+async def widget_voice_session(agent_id: str, token: str, org_id: str, workspace_id: str, app_id: str,
+                               interaction_type: str | None = Query(default=None),
+                               version: str | None = Query(default=None), db: AsyncSession = DB):
+    """Signed Sarvam call URL for a website visitor (the widget's Call button).
 
-    Browsers can't set headers on a WebSocket, so the credential travels in the URL — where proxies and
-    access logs record it. A ticket bound to one agent that expires in a minute is safe to leak; the
-    user's long-lived JWT is not, so it is never accepted on the socket.
+    The Sarvam browser SDK requests ``{baseUrl}orgs/.../url`` and can only add headers, which would force a CORS
+    preflight that some hosts drop; so the widget puts its 15-minute widget token in the path instead. It is bound
+    to this agent, only works for agents with the public widget on, and grants nothing else.
     """
-    a = (await db.execute(select(Agent).where(Agent.id == agent_id, Agent.tenant_id == p.tenant_id))).unique().scalar_one_or_none()
-    if not a:
-        raise HTTPException(404, "Agent not found")
-    ticket = create_access_token(user_id=p.user_id, tenant_id=a.tenant_id, role="ws",
-                                 extra={"kind": "ws", "aid": a.id}, expires_minutes=1)
-    return {"ticket": ticket}
+    a = await widget_agent_for_token(db, token)
+    if a.id != agent_id:
+        raise HTTPException(401, "Widget session is for another agent")
+    return await mint_session(db, a, org_id, workspace_id, app_id, interaction_type, version)
 
 
-def _authorize_ws(token: str, agent: Agent) -> bool:
-    """Only widget sessions and voice tickets open the socket — both bound to this exact agent."""
-    try:
-        c = decode_token(token)
-    except Exception:
-        return False
-    return c.get("kind") in ("widget", "ws") and c.get("aid") == agent.id and c.get("tid") == agent.tenant_id
+@router.post("/public/sarvam/calls")
+async def widget_voice_call_ended(request: Request, authorization: str | None = Header(default=None),
+                                  db: AsyncSession = DB):
+    """After a website visitor's call: store its transcript under Calls. Body: {token, interaction_id}.
 
-
-class _WSTransport:
-    def __init__(self, ws: WebSocket):
-        self.ws = ws
-        self.lock = asyncio.Lock()
-        self.open = True
-
-    async def send_json(self, data: dict) -> None:
-        if not self.open:
-            return
-        async with self.lock:
-            try:
-                await self.ws.send_json(data)
-            except Exception:
-                self.open = False
-
-
-@router.websocket("/voice/ws")
-async def voice_ws(ws: WebSocket, agent_id: str = Query(...), token: str = Query(...)):
-    await ws.accept()
-    async with SessionLocal() as db:
-        bundle = await load_agent_bundle(db, agent_id)
-        if not bundle or not _authorize_ws(token, bundle.agent):
-            await ws.send_json({"type": "error", "message": "Unauthorized or unknown agent"})
-            await ws.close(code=4401)
-            return
-        transport = _WSTransport(ws)
-        session = VoiceSession(db, bundle, transport)
-        reason = "caller_hangup"
-        try:
-            await session.start()
-            while True:
-                recv = asyncio.create_task(ws.receive_json())
-                done_wait = asyncio.create_task(session.done.wait())
-                finished, _ = await asyncio.wait({recv, done_wait}, return_when=asyncio.FIRST_COMPLETED)
-                if done_wait in finished:
-                    recv.cancel()
-                    reason = "silence_timeout"
-                    break
-                done_wait.cancel()
-                if not await session.handle_client_message(recv.result()):
-                    break
-        except WebSocketDisconnect:
-            reason = "disconnected"
-        except Exception:
-            log.exception("voice_ws_failed")
-            reason = "server_error"
-        finally:
-            transport.open = False
-            await session.close(reason)
-            with contextlib.suppress(Exception):
-                await ws.close()
+    The visitor gets back only whether it was stored; the transcript itself goes to the business's dashboard.
+    """
+    data = await _widget_body(request)
+    a = await widget_agent_for_token(db, authorization or data.get("token"))
+    link = await sarvam_link_for(db, a)
+    if not link:
+        raise HTTPException(404, "This agent isn't linked to a Sarvam Voice Agent")
+    r = await save_transcript(db, link, valid_interaction_id(data.get("interaction_id")))
+    return {"ok": r["ok"], "pending": r["pending"]}
 
 
 @router.post("/agents/{agent_id}/chat", response_model=ChatOut)
 async def chat(agent_id: str, body: ChatIn, p: Principal = Depends(tenant_scope), db: AsyncSession = DB):
-    """Text test console: same engine, tools and guardrails as voice, without audio."""
+    """Text test console: same engine, tools and guardrails as the website widget."""
     return await _text_turn(db, agent_id, p.tenant_id, body, channel="web_text")
 
 
@@ -171,7 +154,7 @@ async def _text_turn(db: AsyncSession, agent_id: str, tenant_id: str, body: Chat
         raise HTTPException(404, "Conversation not found")
     engine = AgentEngine(db, bundle)
     if not state:
-        state, _ = await start_conversation(db, bundle, channel)
+        state = await start_conversation(db, bundle, channel)
         if body.language:
             state.language = body.language
         await engine.record_greeting(state, greeting_for(bundle, state.language))
@@ -189,5 +172,5 @@ async def end_chat(conv_id: str, p: Principal = Depends(tenant_scope), db: Async
         if not conv:
             raise HTTPException(404, "Conversation not found")
         return {"ok": True, "already_ended": True}
-    await end_conversation(db, state, None, "ended_by_user")
+    await end_conversation(db, state, "ended_by_user")
     return {"ok": True}

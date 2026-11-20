@@ -47,7 +47,7 @@ def test_serves_files_and_spa_routes(site):
     r = site.get("/assets/app-123.js")
     assert r.status_code == 200 and "immutable" in r.headers["cache-control"]
     assert site.get("/favicon.svg").text == "<svg/>"
-    for route in ("/", "/voice", "/calls/42"):
+    for route in ("/", "/agents", "/calls/42"):
         r = site.get(route)
         assert r.status_code == 200 and "INDEX" in r.text and r.headers["cache-control"] == "no-cache"
 

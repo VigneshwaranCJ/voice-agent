@@ -10,7 +10,7 @@ from app.core.ratelimit import RateLimitMiddleware
 from app.industries.healthcare.module import emergency_guard
 from app.knowledge.ingest import index_document
 from app.knowledge.retrieval import _CACHE, search
-from app.models import ConversationMessage, KnowledgeDocument, Lead, Tenant, VoiceProfile
+from app.models import ConversationMessage, KnowledgeDocument, Lead, Tenant
 from app.orchestration.engine import AgentEngine
 from app.context.manager import load_agent_bundle
 from app.tools.registry import _REGISTRY, ToolSpec, caller_affirmed
@@ -79,16 +79,6 @@ async def test_tool_timeout_rolls_back_partial_writes(db, llm, monkeypatch):
         assert not (await db.execute(select(Lead).where(Lead.name == "ghost"))).scalars().all()
     finally:
         _REGISTRY["search_properties"] = spec
-
-
-# 8 — update_agent can't attach another tenant's voice profile
-async def test_update_agent_rejects_foreign_voice_profile(client, db):
-    re_agent = await agent_for(db, "sunrise-realty")
-    hc_tenant = (await db.execute(select(Tenant).where(Tenant.slug == "carewell-hospital"))).scalar_one()
-    foreign_vp = (await db.execute(select(VoiceProfile).where(VoiceProfile.tenant_id == hc_tenant.id))).scalars().first()
-    h = login(client, "admin@sunrise.local")
-    body = {"name": re_agent.name, "industry": "real_estate", "voice_profile_id": foreign_vp.id}
-    assert client.put(f"/api/v1/agents/{re_agent.id}", headers=h, json=body).status_code == 422
 
 
 # 9 — changing industry resets tools; the engine never exposes another industry's tools

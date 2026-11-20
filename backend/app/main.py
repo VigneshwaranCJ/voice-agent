@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import app.industries.registry  # noqa: F401  registers industry tools/models
 import app.tools.common  # noqa: F401  registers common tools
 from app.api import (
-    agents, auth, business_data, conversations, integrations, knowledge, notifications, tenants, users, voice,
+    agents, auth, business_data, chat, conversations, integrations, knowledge, notifications, sarvam_agents, tenants,
+    users,
 )
 from app.core.config import get_settings
 from app.core.database import SessionLocal, create_all
@@ -51,7 +52,8 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origins, allow_cr
 app.add_middleware(PublicCORSMiddleware)  # added last = outermost: widget endpoints accept any site
 
 api = APIRouter(prefix="/api/v1")
-for r in (auth, tenants, users, notifications, agents, knowledge, integrations, conversations, business_data, voice):
+for r in (auth, tenants, users, notifications, agents, knowledge, integrations, conversations, business_data, chat,
+          sarvam_agents):
     api.include_router(r.router)
 app.include_router(api)
 

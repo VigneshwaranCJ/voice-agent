@@ -62,25 +62,6 @@ async def test_widget_token_scope(client, db):
     tok = client.post(f"/api/v1/public/agents/{re_agent.id}/session").json()["token"]
     # widget tokens cannot call the admin API
     assert client.get("/api/v1/agents", headers={"Authorization": f"Bearer {tok}"}).status_code == 401
-    hc_agent = await agent_for(db, "carewell-hospital")
-    with client.websocket_connect(f"/api/v1/voice/ws?agent_id={hc_agent.id}&token={tok}") as ws:
-        msg = ws.receive_json()
-        assert msg["type"] == "error" and "Unauthorized" in msg["message"]
-
-
-async def test_voice_ticket_replaces_jwt_on_websocket(client, db):
-    re_agent = await agent_for(db, "sunrise-realty")
-    hc_agent = await agent_for(db, "carewell-hospital")
-    h = login(client, "admin@sunrise.local")
-    jwt = h["Authorization"].split()[1]
-    # The long-lived login JWT is no longer accepted on the socket (it would end up in access logs).
-    with client.websocket_connect(f"/api/v1/voice/ws?agent_id={re_agent.id}&token={jwt}") as ws:
-        assert ws.receive_json()["type"] == "error"
-    # Tickets are only issued for the caller's own tenant's agents...
-    assert client.post(f"/api/v1/agents/{hc_agent.id}/voice-ticket", headers=h).status_code == 404
-    ticket = client.post(f"/api/v1/agents/{re_agent.id}/voice-ticket", headers=h).json()["ticket"]
-    # ...cannot be used as an API bearer token...
-    assert client.get("/api/v1/agents", headers={"Authorization": f"Bearer {ticket}"}).status_code == 401
-    # ...and are bound to the one agent they were issued for.
-    with client.websocket_connect(f"/api/v1/voice/ws?agent_id={hc_agent.id}&token={ticket}") as ws:
-        assert "Unauthorized" in ws.receive_json()["message"]
+    # nor the Sarvam session route, which needs a dashboard login
+    url = f"/api/v1/sarvam/runtime/{re_agent.id}/orgs/o/workspaces/w/apps/a/url"
+    assert client.get(url, headers={"Authorization": f"Bearer {tok}"}).status_code == 401

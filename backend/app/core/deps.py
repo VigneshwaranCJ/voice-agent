@@ -39,7 +39,7 @@ async def get_principal(
     except Exception:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token") from None
     if claims.get("kind") in ("widget", "ws"):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Voice tickets cannot access the admin API")
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Widget sessions cannot access the admin API")
     # Tokens are stateless, so check the account on every request: a deactivated (or deleted) user is locked
     # out at once instead of when the token expires. Role and tenant also come from the database, not the token.
     user = await db.get(User, claims.get("sub"))

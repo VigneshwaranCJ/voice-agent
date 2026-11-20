@@ -13,7 +13,6 @@ import Dashboard from './pages/Dashboard'
 import Knowledge from './pages/Knowledge'
 import Login from './pages/Login'
 import Team from './pages/Team'
-import VoiceConsole from './pages/VoiceConsole'
 
 function Protected({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
@@ -31,7 +30,6 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<Protected><AppLayout /></Protected>}>
             <Route index element={<Dashboard />} />
-            <Route path="voice" element={<VoiceConsole />} />
             <Route path="agents" element={<Agents />} />
             <Route path="knowledge" element={<Knowledge />} />
             <Route path="calls" element={<Calls />} />

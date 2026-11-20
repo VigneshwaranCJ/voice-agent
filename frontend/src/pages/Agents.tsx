@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import SarvamLink from '../components/SarvamLink'
 import TestChat from '../components/TestChat'
 import { useToast } from '../components/Toast'
 import { Badge, Empty, ErrorNote, PageHeader, fmtDate } from '../components/ui'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../services/api'
-import { LANGUAGES, type Agent, type AgentConfig, type ToolInfo, type VoiceProfile } from '../types'
+import { LANGUAGES, type Agent, type AgentConfig, type ToolInfo } from '../types'
 
 export default function Agents() {
   const { user } = useAuth()
@@ -60,14 +61,12 @@ function AgentEditor({ id, onSaved }: { id: string; onSaved: () => void }) {
   const toast = useToast()
   const { data: catalog } = useApi<ToolInfo[]>('/agents/tools/catalog')
   const { data: industries } = useApi<{ available: { key: string; default_tools: string[] }[] }>('/industries')
-  const { data: voices } = useApi<{ suggested: Record<string, string[]> }>('/voice-profiles/voices')
   const [cfg, setCfg] = useState<AgentConfig | null>(null)
-  const [vp, setVp] = useState<VoiceProfile | null>(null)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  useEffect(() => { if (agent?.config) setCfg(agent.config); if (agent?.voice_profile) setVp(agent.voice_profile) }, [agent])
+  useEffect(() => { if (agent?.config) setCfg(agent.config) }, [agent])
   if (!agent || !cfg) return <ErrorNote error={error} />
 
   const allowed = industries?.available.find((i) => i.key === agent.industry)?.default_tools ?? []
@@ -76,13 +75,12 @@ function AgentEditor({ id, onSaved }: { id: string; onSaved: () => void }) {
   const save = async () => {
     setSaving(true); setMsg(null); setErr(null)
     try {
-      const { config: _c, voice_profile: _v, id: _i, tenant_id: _t, created_at: _ca, ...rest } = agent
+      const { config: _c, id: _i, tenant_id: _t, created_at: _ca, ...rest } = agent
       const updated = await api<Agent>(`/agents/${id}`, { method: 'PUT', json: { ...rest, config: {
         persona_name: cfg.persona_name, personality: cfg.personality, system_instructions: cfg.system_instructions,
         greeting: cfg.greeting, enabled_tools: cfg.enabled_tools, workflows: cfg.workflows,
         escalation_policy: cfg.escalation_policy, llm_settings: cfg.llm_settings,
       } } })
-      if (vp) await api(`/voice-profiles/${vp.id}`, { method: 'PUT', json: vp })
       setData(updated)
       setMsg(`Saved — configuration version ${updated.config?.version}`)
       toast(`Saved as version ${updated.config?.version}`)
@@ -121,24 +119,6 @@ function AgentEditor({ id, onSaved }: { id: string; onSaved: () => void }) {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={agent.is_active} onChange={(e) => setData({ ...agent, is_active: e.target.checked })} />Active</label>
       </div>
 
-      {vp && (
-        <div className="card">
-          <div className="mb-3 text-sm font-semibold">Voice (Sarvam {vp.tts_model})</div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {agent.languages.map((l) => (
-              <div key={l}><label className="label">{LANGUAGES[l] ?? l} speaker</label>
-                <input className="input" list={`voices-${l}`} value={vp.speakers[l] ?? ''} placeholder="default"
-                  onChange={(e) => setVp({ ...vp, speakers: { ...vp.speakers, [l]: e.target.value } })} />
-                <datalist id={`voices-${l}`}>{voices?.suggested[l]?.map((v) => <option key={v} value={v} />)}</datalist>
-              </div>
-            ))}
-            <div><label className="label">Pace ({vp.pace.toFixed(2)})</label><input type="range" min={0.7} max={1.3} step={0.05} className="w-full" value={vp.pace} onChange={(e) => setVp({ ...vp, pace: +e.target.value })} /></div>
-            <div><label className="label">Expressiveness ({vp.temperature.toFixed(2)})</label><input type="range" min={0.1} max={1} step={0.05} className="w-full" value={vp.temperature} onChange={(e) => setVp({ ...vp, temperature: +e.target.value })} /></div>
-          </div>
-          <p className="mt-2 text-xs text-slate-400">Bulbul v4 personas are named &lt;name&gt;_&lt;lang&gt;_&lt;style&gt;. Sarvam has no Tamil “customer” style yet — audition the Tamil voices.</p>
-        </div>
-      )}
-
       <div className="card">
         <div className="mb-3 text-sm font-semibold">Greeting</div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -165,6 +145,7 @@ function AgentEditor({ id, onSaved }: { id: string; onSaved: () => void }) {
       <button className="btn" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
       <TestChat key={`${agent.id}:${cfg.version ?? ''}`} agentId={agent.id} languages={agent.languages} />
       <WidgetEmbed agentId={agent.id} enabled={agent.public_widget_enabled} />
+      <SarvamLink agentId={agent.id} enabledTools={cfg.enabled_tools} catalog={catalog} />
       <ConfigHistory agentId={agent.id} current={cfg.version} onRestored={() => { reloadAgent(); onSaved() }} />
     </div>
   )
@@ -174,7 +155,6 @@ function AgentEditor({ id, onSaved }: { id: string; onSaved: () => void }) {
 function NewAgentForm({ onCreated, onCancel }: { onCreated: (a: Agent) => void; onCancel: () => void }) {
   const { tenants, tenantId } = useAuth()
   const { data: industries } = useApi<{ available: { key: string; label: string }[] }>('/industries')
-  const { data: profiles } = useApi<VoiceProfile[]>('/voice-profiles')
   const businessIndustry = tenants.find((t) => t.id === tenantId)?.industry ?? 'custom'
   const [name, setName] = useState('')
   const [persona, setPersona] = useState('Priya')
@@ -202,7 +182,7 @@ function NewAgentForm({ onCreated, onCancel }: { onCreated: (a: Agent) => void; 
     try {
       const agent = await api<Agent>('/agents', { method: 'POST', json: {
         name: name.trim(), industry: chosenIndustry, languages, default_language: defaultLanguage,
-        voice_profile_id: profiles?.[0]?.id ?? null, config: { persona_name: persona.trim() || 'Priya' },
+        config: { persona_name: persona.trim() || 'Priya' },
       } })
       onCreated(agent)
     } catch (e2) { setErr((e2 as Error).message) } finally { setBusy(false) }

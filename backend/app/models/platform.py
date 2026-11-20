@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, IdMixin, TenantMixin, TimestampMixin
@@ -64,29 +64,16 @@ class SupportedLanguage(Base):
     tts_supported: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
-class VoiceProfile(IdMixin, TenantMixin, TimestampMixin, Base):
-    __tablename__ = "voice_profiles"
-    name: Mapped[str] = mapped_column(String(100))
-    tts_model: Mapped[str] = mapped_column(String(40), default="bulbul:v4-flash")
-    # language code -> Bulbul persona id, e.g. {"en-IN": "aparna_en_companion", "ta-IN": "gokul_ta_narration"}
-    speakers: Mapped[dict] = mapped_column(JSON, default=dict)
-    pace: Mapped[float] = mapped_column(Float, default=1.0)
-    temperature: Mapped[float] = mapped_column(Float, default=0.6)
-    sample_rate: Mapped[int] = mapped_column(Integer, default=24000)
-
-
 class Agent(IdMixin, TenantMixin, TimestampMixin, Base):
     __tablename__ = "agents"
     name: Mapped[str] = mapped_column(String(100))
     industry: Mapped[str] = mapped_column(String(40))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    voice_profile_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("voice_profiles.id", ondelete="SET NULL"))
     default_language: Mapped[str] = mapped_column(String(10), default="en-IN")
     languages: Mapped[list] = mapped_column(JSON, default=lambda: ["en-IN", "ta-IN"])
     # Allows unauthenticated web-widget sessions for this agent (website channel).
     public_widget_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    voice_profile: Mapped[VoiceProfile | None] = relationship(lazy="joined")
     configurations: Mapped[list["AgentConfiguration"]] = relationship(
         back_populates="agent", order_by="AgentConfiguration.version.desc()", cascade="all, delete-orphan"
     )
@@ -109,6 +96,24 @@ class AgentConfiguration(IdMixin, TenantMixin, TimestampMixin, Base):
     llm_settings: Mapped[dict] = mapped_column(JSON, default=dict)
 
     agent: Mapped[Agent] = relationship(back_populates="configurations")
+
+
+class SarvamAgentLink(IdMixin, TenantMixin, TimestampMixin, Base):
+    """Connects one of our agents to a hosted Sarvam Voice Agents app (Samvaad).
+
+    Sarvam runs the call (speech, LLM, voice) and calls our tool webhook with a static bearer token. Only a
+    hash of that token is stored; the tenant and agent for a tool call come from this row, never from the
+    request body or the model's arguments.
+    """
+
+    __tablename__ = "sarvam_agent_links"
+    __table_args__ = (UniqueConstraint("agent_id"),)
+    agent_id: Mapped[str] = mapped_column(String(36), ForeignKey("agents.id", ondelete="CASCADE"), index=True)
+    org_id: Mapped[str] = mapped_column(String(100), default="")
+    workspace_id: Mapped[str] = mapped_column(String(100), default="")
+    app_id: Mapped[str] = mapped_column(String(100), default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    tool_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
 
 
 class DatabaseConnection(IdMixin, TenantMixin, TimestampMixin, Base):

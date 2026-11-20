@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import DB, Principal, audit, tenant_admin_scope, tenant_scope
 from app.industries.registry import get_industry
-from app.models import Agent, AgentConfiguration, VoiceProfile
-from app.schemas.api import AgentConfigIn, AgentConfigOut, AgentDetailOut, AgentIn, AgentOut, VoiceProfileOut
+from app.models import Agent, AgentConfiguration
+from app.schemas.api import AgentConfigIn, AgentConfigOut, AgentDetailOut, AgentIn, AgentOut
 from app.tools.registry import all_tools
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -31,17 +31,10 @@ def _validate_tools(tools: list[str], industry: str) -> None:
         raise HTTPException(422, f"Tools not available for industry '{industry}': {bad}")
 
 
-async def _check_voice_profile(db: AsyncSession, p: Principal, voice_profile_id: str | None) -> None:
-    if voice_profile_id and not (await db.execute(select(VoiceProfile).where(
-            VoiceProfile.tenant_id == p.tenant_id, VoiceProfile.id == voice_profile_id))).scalar_one_or_none():
-        raise HTTPException(422, "Unknown voice profile")
-
-
 async def _detail(db: AsyncSession, a: Agent) -> AgentDetailOut:
     cfg = await _active_config(db, a)
     return AgentDetailOut(**AgentOut.model_validate(a).model_dump(),
-                          config=AgentConfigOut.model_validate(cfg) if cfg else None,
-                          voice_profile=VoiceProfileOut.model_validate(a.voice_profile) if a.voice_profile else None)
+                          config=AgentConfigOut.model_validate(cfg) if cfg else None)
 
 
 @router.get("/tools/catalog")
@@ -58,7 +51,6 @@ async def list_agents(p: Principal = Depends(tenant_scope), db: AsyncSession = D
 
 @router.post("", response_model=AgentDetailOut, status_code=201)
 async def create_agent(body: AgentIn, request: Request, p: Principal = Depends(tenant_admin_scope), db: AsyncSession = DB):
-    await _check_voice_profile(db, p, body.voice_profile_id)
     cfg_in = body.config or AgentConfigIn()
     if not cfg_in.enabled_tools:
         cfg_in.enabled_tools = get_industry(body.industry).default_tools
@@ -82,7 +74,6 @@ async def get_agent(agent_id: str, p: Principal = Depends(tenant_scope), db: Asy
 async def update_agent(agent_id: str, body: AgentIn, request: Request, p: Principal = Depends(tenant_admin_scope),
                        db: AsyncSession = DB):
     a = await _get_agent(db, p, agent_id)
-    await _check_voice_profile(db, p, body.voice_profile_id)  # must belong to this tenant
     industry_changed = body.industry != a.industry
     for k, v in body.model_dump(exclude={"config"}).items():
         setattr(a, k, v)

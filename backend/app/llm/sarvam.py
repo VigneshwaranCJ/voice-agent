@@ -1,6 +1,4 @@
-from collections.abc import AsyncIterator
-
-from app.llm.base import LLMResponse, ThinkFilter, ToolCall, clean_content, parse_openai_message
+from app.llm.base import LLMResponse, parse_openai_message
 from app.sarvam.client import SarvamClient, get_sarvam
 
 
@@ -19,33 +17,6 @@ class SarvamLLM:
         res = await self.client.chat(messages, tools=tools, **self._args(opts))
         choice = (res.get("choices") or [{}])[0]
         return parse_openai_message(choice.get("message") or {})
-
-    async def stream(self, messages: list[dict], tools: list[dict] | None = None, **opts) -> AsyncIterator[str | LLMResponse]:
-        """Yield reply text as it is generated, then the complete LLMResponse (with any tool calls) last."""
-        think = ThinkFilter()
-        content: list[str] = []
-        calls: dict[int, dict] = {}  # tool-call deltas arrive in pieces, keyed by index
-        async for chunk in self.client.chat_stream(messages, tools=tools, **self._args(opts)):
-            for choice in chunk.get("choices") or []:
-                delta = choice.get("delta") or {}
-                if delta.get("content"):
-                    text = think.feed(delta["content"])
-                    if text:
-                        content.append(text)
-                        yield text
-                for tc in delta.get("tool_calls") or []:
-                    c = calls.setdefault(tc.get("index", 0), {"id": None, "name": "", "arguments": ""})
-                    c["id"] = tc.get("id") or c["id"]
-                    fn = tc.get("function") or {}
-                    c["name"] += fn.get("name") or ""
-                    c["arguments"] += fn.get("arguments") or ""
-        tail = think.flush()
-        if tail:
-            content.append(tail)
-            yield tail
-        tool_calls = [ToolCall(id=c["id"] or c["name"] or f"call_{i}", name=c["name"], arguments=c["arguments"] or "{}")
-                      for i, c in sorted(calls.items())]
-        yield LLMResponse(content=clean_content("".join(content)), tool_calls=tool_calls)
 
 
 _llm = None

@@ -85,7 +85,7 @@ export function Calls() {
             className={`rounded-full px-3 py-1 text-sm capitalize ring-1 ring-inset transition ${status === st ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300'}`}>{st}</button>
         ))}
         <select aria-label="Channel" className="input w-auto py-1.5" value={channel} onChange={(e) => setChannel(e.target.value)}>
-          <option value="">All channels</option><option value="web_voice">Web voice</option><option value="web_text">Web text</option><option value="widget">Website widget</option><option value="phone">Phone</option>
+          <option value="">All channels</option><option value="sarvam_voice">Sarvam voice</option><option value="web_text">Web text</option><option value="widget">Website widget</option><option value="phone">Phone</option>
         </select>
         <label className="flex items-center gap-1 text-sm text-slate-500">From <input type="date" aria-label="From date" className="input w-auto py-1.5" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></label>
         <label className="flex items-center gap-1 text-sm text-slate-500">To <input type="date" aria-label="To date" className="input w-auto py-1.5" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></label>
@@ -120,18 +120,30 @@ interface Detail {
   tool_executions: { tool: string; status: string; arguments: unknown; result: unknown; error: string | null; duration_ms: number; at: string }[]
   escalations: { id: string; reason: string; priority: string; summary: string; status: string; at: string }[]
   call: { duration_seconds: number | null; status: string; end_reason: string | null } | null
-  call_events: { type: string; payload: unknown; at: string }[]
 }
 
 export function CallDetail() {
   const { id } = useParams()
-  const { data, error } = useApi<Detail>(`/conversations/${id}`)
+  const { data, error, reload } = useApi<Detail>(`/conversations/${id}`)
+  const toast = useToast()
+  const [refreshing, setRefreshing] = useState(false)
   if (!data) return <ErrorNote error={error} />
   const c = data.conversation
+  const refresh = async () => {
+    setRefreshing(true)
+    try {
+      const r = await api<{ pending: boolean; messages: number }>(`/conversations/${id}/sarvam-transcript`, { method: 'POST' })
+      toast(r.pending ? 'Sarvam hasn’t finished this transcript yet. Try again in a minute.' : `Transcript updated (${r.messages} messages)`)
+      if (!r.pending) await reload()
+    } catch (e) { toast((e as Error).message, 'error') } finally { setRefreshing(false) }
+  }
   return (
     <div>
       <PageHeader eyebrow="Transcript" title="Conversation" subtitle={`${fmtDate(c.created_at)} · ${c.channel.replace('_', ' ')}`}
-        actions={<Link to="/calls" className="btn-ghost">← All calls</Link>} />
+        actions={<div className="flex gap-2">
+          {c.channel === 'sarvam_voice' && <button className="btn-ghost" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh transcript'}</button>}
+          <Link to="/calls" className="btn-ghost">← All calls</Link>
+        </div>} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_22rem]">
         <div className="card space-y-3">
           {data.messages.map((m) => (
@@ -165,11 +177,6 @@ export function CallDetail() {
               </details>
             )) : <div className="text-slate-400">None</div>}
           </div>
-          {!!data.call_events.length && (
-            <div className="card text-sm"><div className="mb-2 font-semibold">Call events</div>
-              {data.call_events.map((e, i) => <div key={i} className="text-xs"><span className="font-mono">{e.type}</span> <span className="text-slate-400">{fmtDate(e.at)}</span></div>)}
-            </div>
-          )}
         </div>
       </div>
     </div>

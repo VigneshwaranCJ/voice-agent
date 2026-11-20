@@ -91,19 +91,6 @@ class BusinessProfileOut(BusinessProfileIn, ORM):
     id: str
 
 
-class VoiceProfileIn(BaseModel):
-    name: str
-    tts_model: str = "bulbul:v4-flash"
-    speakers: dict[str, str] = {}
-    pace: float = Field(default=1.0, ge=0.5, le=2.0)
-    temperature: float = Field(default=0.6, ge=0.01, le=1.0)
-    sample_rate: int = 24000
-
-
-class VoiceProfileOut(VoiceProfileIn, ORM):
-    id: str
-
-
 class AgentConfigIn(BaseModel):
     persona_name: str = "Priya"
     personality: str = ""
@@ -126,7 +113,6 @@ class AgentIn(BaseModel):
     industry: str
     default_language: str = "en-IN"
     languages: list[str] = ["en-IN", "ta-IN"]
-    voice_profile_id: str | None = None
     public_widget_enabled: bool = True
     is_active: bool = True
     config: AgentConfigIn | None = None
@@ -139,7 +125,6 @@ class AgentOut(ORM):
     industry: str
     default_language: str
     languages: list[str]
-    voice_profile_id: str | None
     public_widget_enabled: bool
     is_active: bool
     created_at: datetime
@@ -147,7 +132,6 @@ class AgentOut(ORM):
 
 class AgentDetailOut(AgentOut):
     config: AgentConfigOut | None
-    voice_profile: VoiceProfileOut | None
 
 
 class KnowledgeDocOut(ORM):

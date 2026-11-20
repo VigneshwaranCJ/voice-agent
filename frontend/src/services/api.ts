@@ -42,14 +42,3 @@ export async function api<T = unknown>(path: string,
   }
   return res.status === 204 ? (undefined as T) : res.json()
 }
-
-/** Short-lived (1 min), agent-bound ticket. The login JWT is never put in a WebSocket URL. */
-export async function voiceTicket(agentId: string): Promise<string> {
-  const res = await api<{ ticket: string }>(`/agents/${encodeURIComponent(agentId)}/voice-ticket`, { method: 'POST' })
-  return res.ticket
-}
-
-export function voiceSocketUrl(agentId: string, token: string): string {
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${proto}://${window.location.host}/api/v1/voice/ws?agent_id=${encodeURIComponent(agentId)}&token=${encodeURIComponent(token)}`
-}

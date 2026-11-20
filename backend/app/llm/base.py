@@ -1,7 +1,6 @@
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Protocol
 
 
 @dataclass
@@ -24,50 +23,11 @@ class LLMResponse:
         return msg
 
 
-class LLMProvider(Protocol):
-    async def complete(self, messages: list[dict], tools: list[dict] | None = None, **opts) -> LLMResponse: ...
-
-
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 def clean_content(text: str | None) -> str:
     return _THINK.sub("", text or "").strip()
-
-
-class ThinkFilter:
-    """Removes <think>…</think> from streamed text, even when a tag is split across chunks."""
-
-    OPEN, CLOSE = "<think>", "</think>"
-
-    def __init__(self) -> None:
-        self.inside = False
-        self.pending = ""
-
-    def feed(self, chunk: str) -> str:
-        self.pending += chunk
-        out = []
-        while self.pending:
-            tag = self.CLOSE if self.inside else self.OPEN
-            i = self.pending.find(tag)
-            if i >= 0:
-                if not self.inside:
-                    out.append(self.pending[:i])
-                self.pending = self.pending[i + len(tag):]
-                self.inside = not self.inside
-                continue
-            # Keep a possible partial tag at the end for the next chunk.
-            keep = next((k for k in range(min(len(tag) - 1, len(self.pending)), 0, -1)
-                         if tag.startswith(self.pending[-k:])), 0)
-            if not self.inside:
-                out.append(self.pending[:len(self.pending) - keep])
-            self.pending = self.pending[len(self.pending) - keep:]
-            break
-        return "".join(out)
-
-    def flush(self) -> str:
-        rest, self.pending = ("" if self.inside else self.pending), ""
-        return rest
 
 
 def parse_openai_message(msg: dict) -> LLMResponse:

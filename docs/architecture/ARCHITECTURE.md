@@ -1,6 +1,11 @@
 # Architecture — Multi-Industry AI Customer Care Voice Platform
 
-Status: Phase 1 (foundation) + Phase 2 (voice engine) implemented. See `docs/ROADMAP.md`.
+Status: Phase 1 (foundation) implemented. **Voice changed (2026-11-20):** the platform's own STT → LLM → TTS pipeline
+(browser WebSocket, `VoiceSession`, Sarvam streaming STT/TTS, voice profiles, the Voice page and avatars) was removed.
+Voice calls now run only on hosted **Sarvam Voice Agents**, which call our tools over HTTPS
+(`app/api/sarvam_agents.py`, see `docs/api/API.md`). The engine (guardrails → context → LLM ⇄ tools) remains for text
+chat and the website widget. Sections below that describe the voice WebSocket and streaming are historical.
+See `docs/ROADMAP.md`.
 
 ## Decisions (confirmed for MVP)
 

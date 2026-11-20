@@ -12,7 +12,16 @@ Legend: ✅ done · 🟡 partial · ⬜ pending
 - ✅ React + TS + Vite + Tailwind dashboard
 - 🟡 PostgreSQL + Redis via Docker Compose — config written, **not yet run** (Docker Desktop was not running). Local dev verified on SQLite + in-memory state.
 
-## Phase 2 — Voice engine ✅ (needs a real Sarvam key to verify audio)
+## Voice on hosted Sarvam Voice Agents 🟡 (2026-11-20)
+- ✅ Own STT → LLM → TTS voice pipeline removed (WebSocket, streaming STT/TTS, voice profiles, Voice page, avatars). Migration `0003` drops `voice_profiles` and `agents.voice_profile_id`.
+- ✅ Per-agent Sarvam link + hashed tool token; tool webhook `/sarvam/tools/{tool}` runs the agent's read-only tools (tenant from the token); session route for the Sarvam browser SDK; Agents page panel; isolation tests.
+- ⬜ Verify with a real Sarvam agent (tool request format isn't in Sarvam's public docs).
+- ⬜ Bookings on the Sarvam channel (needs a way to confirm the caller's own "yes").
+- ✅ Browser calls via Sarvam's Web SDK (dashboard **Test call**, website widget **Call**), barge-in, dropped-call and mic-denied states; transcripts saved under Calls.
+- ✅ Python SDK (`AsyncSamvaadAgent`) connection check and local mic test script; optional business `agent_variables`. Architecture and AppSail assessment: `docs/deploy/SARVAM_VOICE.md`.
+- ⬜ First real call with credits, a committed Sarvam agent and `SARVAM_AGENTS_API_KEY`.
+
+## Phase 2 — Voice engine (removed 2026-11-20; replaced by Sarvam Voice Agents above)
 - ✅ Sarvam realtime STT WebSocket (`saaras:v4`, VAD endpointing, auto language detection)
 - ✅ Sarvam streaming TTS WebSocket (`bulbul:v4-flash`, per-language persona, pace, temperature)
 - ✅ Sarvam chat completions with tool calling (`sarvam-105b-conversations`)

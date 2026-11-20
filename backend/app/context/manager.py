@@ -46,7 +46,7 @@ async def load_agent_bundle(db: AsyncSession, agent_id: str, tenant_id: str | No
     profile = (await db.execute(select(BusinessProfile).where(BusinessProfile.tenant_id == agent.tenant_id))).scalar_one_or_none()
     # Detach: the bundle lives for the whole call, and a rollback (e.g. after a failed tool) would otherwise
     # expire these objects and force a lazy reload outside the async context.
-    for obj in (agent.voice_profile, agent, cfg, profile):
+    for obj in (agent, cfg, profile):
         if obj is not None and obj in db:
             db.expunge(obj)
     return AgentBundle(agent, cfg, profile)

@@ -46,14 +46,9 @@ class CallSession(IdMixin, TenantMixin, Base):
     recording_consent: Mapped[bool] = mapped_column(Boolean, default=False)
     recording_url: Mapped[str | None] = mapped_column(String(500))
     end_reason: Mapped[str | None] = mapped_column(String(60))
-
-
-class CallEvent(IdMixin, TenantMixin, Base):
-    __tablename__ = "call_events"
-    call_session_id: Mapped[str] = mapped_column(String(36), ForeignKey("call_sessions.id", ondelete="CASCADE"), index=True)
-    event_type: Mapped[str] = mapped_column(String(40))  # barge_in | stt_error | tts_error | language_switch | ...
-    payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # The provider's id for this call, e.g. a Sarvam Voice Agents interaction id ("20261120/abc..."), used to fetch
+    # its transcript later.
+    external_ref: Mapped[str | None] = mapped_column(String(200), index=True)
 
 
 class ToolExecution(IdMixin, TenantMixin, Base):
