@@ -5,6 +5,12 @@ _db = os.path.join(tempfile.mkdtemp(), "test.db")
 os.environ.update({
     "DATABASE_URL": f"sqlite+aiosqlite:///{_db}",
     "SARVAM_API_KEY": "",
+    # Never use the developer's real Sarvam Voice Agents settings from .env in tests.
+    "SARVAM_AGENTS_API_KEY": "",
+    "SARVAM_AGENTS_ORG_ID": "",
+    "SARVAM_AGENTS_WORKSPACE_ID": "",
+    "SARVAM_AGENTS_APP_ID": "",
+    "SARVAM_AGENTS_SEND_CONTEXT": "false",
     "REDIS_URL": "",
     "SEED_DEMO_DATA": "false",
     "ENVIRONMENT": "development",
