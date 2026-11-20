@@ -52,9 +52,14 @@ def _explain(e: BaseException) -> str:
     """A short, key-free reason for the admin."""
     name, msg = type(e).__name__, str(e)
     for needle, text in (("Authentication", "Sarvam rejected the Voice Agents API key."),
+                         ("401", "Sarvam rejected the Voice Agents API key (401). Use a key from indus.sarvam.ai → "
+                                 "Samvaad → Settings → API key, not the model API key from dashboard.sarvam.ai."),
                          ("Forbidden", "This API key can't use that Sarvam agent."),
+                         ("403", "This API key can't use that Sarvam agent (403): is it from the same organization?"),
                          ("NotFound", "Sarvam agent not found: check the org, workspace and app ids, and that the "
                                       "agent has a committed version."),
+                         ("404", "Sarvam agent not found (404): check the org, workspace and app ids, and that the "
+                                 "agent has a committed (published) version."),
                          ("RateLimit", "Sarvam is rate limiting; try again shortly."),
                          ("402", "The Sarvam account is out of credits.")):
         if needle in name or needle in msg:
@@ -136,6 +141,7 @@ async def check_connection(agent_key: str, org_id: str, workspace_id: str, app_i
         return result
     finally:
         if agent is not None:
+            result.interaction_id = agent.get_interaction_id() or result.interaction_id  # set shortly after connect
             try:
                 await agent.stop()  # always end the session, whatever happened above
             except Exception:
