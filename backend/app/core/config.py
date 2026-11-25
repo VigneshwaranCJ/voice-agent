@@ -72,6 +72,9 @@ class Settings(BaseSettings):
 
     # Seed demo data (two demo businesses) on first start in development
     seed_demo_data: bool = True
+    seed_admin_email: str = "admin@platform.local"
+    seed_admin_password: str = "ChangeMe-Admin-123"
+    seed_tenant_password: str = "ChangeMe-Tenant-123"
 
     @field_validator("database_url")
     @classmethod

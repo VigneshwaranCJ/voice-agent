@@ -1,16 +1,16 @@
 """Seed reference data + two FICTIONAL demo businesses (development only).
 
 Run: uv run python -m app.seed      (also runs automatically on startup when SEED_DEMO_DATA=true and DB is empty)
-Credentials come from SEED_* env vars (see .env.example).
+Credentials come from the SEED_* settings, read from .env or the environment (see .env.example).
 """
 
 import asyncio
-import os
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.business_data import add_slots
+from app.core.config import get_settings
 from app.core.database import SessionLocal, create_all
 from app.industries.healthcare.models import Department, Doctor
 from app.industries.real_estate.models import Property, SalesExecutive
@@ -81,7 +81,7 @@ async def _tenant(db: AsyncSession, *, name: str, slug: str, industry: str, prof
     await db.flush()
     db.add(BusinessProfile(tenant_id=t.id, display_name=name, **profile))
     db.add(User(tenant_id=t.id, email=admin_email, full_name=f"{name} Admin", role="tenant_admin",
-                password_hash=hash_password(os.getenv("SEED_TENANT_PASSWORD", "ChangeMe-Tenant-123"))))
+                password_hash=hash_password(get_settings().seed_tenant_password)))
     await db.flush()
     a = Agent(tenant_id=t.id, name=agent_name, industry=industry, default_language="en-IN",
               languages=["en-IN", "ta-IN"], public_widget_enabled=True)
@@ -102,8 +102,9 @@ async def seed(db: AsyncSession) -> bool:
         await db.commit()
         return False
 
-    db.add(User(tenant_id=None, email=os.getenv("SEED_ADMIN_EMAIL", "admin@platform.local"), full_name="Platform Admin",
-                role="platform_admin", password_hash=hash_password(os.getenv("SEED_ADMIN_PASSWORD", "ChangeMe-Admin-123"))))
+    settings = get_settings()
+    db.add(User(tenant_id=None, email=settings.seed_admin_email.strip().lower(), full_name="Platform Admin",
+                role="platform_admin", password_hash=hash_password(settings.seed_admin_password)))
 
     # --- Real estate (fictional) ---
     t, _ = await _tenant(

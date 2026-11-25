@@ -13,6 +13,10 @@ os.environ.update({
     "SARVAM_AGENTS_SEND_CONTEXT": "false",
     "REDIS_URL": "",
     "SEED_DEMO_DATA": "false",
+    # Seeded logins are fixed for tests, whatever the developer's .env says.
+    "SEED_ADMIN_EMAIL": "admin@platform.local",
+    "SEED_ADMIN_PASSWORD": "ChangeMe-Admin-123",
+    "SEED_TENANT_PASSWORD": "ChangeMe-Tenant-123",
     "ENVIRONMENT": "development",
     "RATE_LIMIT_PER_MINUTE": "100000",
 })
