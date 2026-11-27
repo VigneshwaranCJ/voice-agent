@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     # Analytics API (same key): transcripts of finished calls, saved under Calls.
     sarvam_agents_analytics_url: str = "https://apps.sarvam.ai/api/analytics/v1"
 
+    # Post-call analyst agent: opens a follow-up in the team's queue when it finds a caller needs a person.
+    analysis_auto_follow_up: bool = True
+
     # Engine limits
     llm_timeout_seconds: float = 20.0
     tool_timeout_seconds: float = 8.0

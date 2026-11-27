@@ -37,6 +37,7 @@ Legend: ✅ done · 🟡 partial · ⬜ pending
 - ✅ Tool registry: validation, timeouts, confirmation gate, audit, structured errors
 - ✅ Guardrails: emergency (EN/TA/Tanglish/HI), human-request, repeated-failure escalation
 - ✅ Human handoff records with context summary
+- ✅ Post-call analyst agent (2026-11-27): sentiment, outcome, summary, key quotes and follow-ups for every ended text chat and Sarvam call. Validated tool output with self-correction, fact checks against tool runs and escalations, and an automatic follow-up when a person should call back (`ANALYSIS_AUTO_FOLLOW_UP`). Shown in Calls (column, filter, analysis card) and on the dashboard. ⬜ Bulk analysis of calls that ended before this shipped
 - 🟡 RAG: BM25 keyword retrieval (tenant + agent scoped). ⬜ pgvector embeddings + hybrid search (needs embedding provider choice)
 - ⬜ Caller verification (OTP) before sharing sensitive records
 - ⬜ Admin-defined tools over external DB/REST connections

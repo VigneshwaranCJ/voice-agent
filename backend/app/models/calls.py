@@ -32,6 +32,36 @@ class ConversationMessage(IdMixin, TenantMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class ConversationAnalysis(IdMixin, TenantMixin, TimestampMixin, Base):
+    """The post-call analyst agent's findings for one ended conversation (one row per conversation, re-runs replace it).
+
+    ``status``: done | failed | not_configured | skipped. Only ``done`` rows carry findings; the others say why not.
+    """
+
+    __tablename__ = "conversation_analyses"
+    conversation_id: Mapped[str] = mapped_column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"),
+                                                 unique=True, index=True)
+    agent_id: Mapped[str] = mapped_column(String(36), index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    sentiment: Mapped[str | None] = mapped_column(String(20), index=True)  # positive | neutral | negative | mixed
+    sentiment_score: Mapped[float | None] = mapped_column(Float)  # -1 (very negative) .. 1 (very positive)
+    sentiment_trend: Mapped[str | None] = mapped_column(String(20))  # improving | steady | worsening
+    emotions: Mapped[list] = mapped_column(JSON, default=list)
+    outcome: Mapped[str | None] = mapped_column(String(30))
+    resolved: Mapped[bool | None] = mapped_column(Boolean)
+    summary: Mapped[str | None] = mapped_column(Text)
+    topics: Mapped[list] = mapped_column(JSON, default=list)
+    key_quotes: Mapped[list] = mapped_column(JSON, default=list)  # caller's own words, verified against the transcript
+    follow_ups: Mapped[list] = mapped_column(JSON, default=list)  # [{"action": str, "priority": str}]
+    needs_human: Mapped[bool] = mapped_column(Boolean, default=False)
+    agent_issues: Mapped[list] = mapped_column(JSON, default=list)
+    checks: Mapped[list] = mapped_column(JSON, default=list)  # corrections the fact checks made to the model's answer
+    escalation_id: Mapped[str | None] = mapped_column(String(36))  # follow-up this analysis opened, if any
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    model: Mapped[str | None] = mapped_column(String(80))
+    error: Mapped[str | None] = mapped_column(Text)
+
+
 class CallSession(IdMixin, TenantMixin, Base):
     __tablename__ = "call_sessions"
     conversation_id: Mapped[str] = mapped_column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"), index=True)

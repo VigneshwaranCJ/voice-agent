@@ -4,6 +4,7 @@ from app.models.calls import (
     AuditLog,
     CallSession,
     Conversation,
+    ConversationAnalysis,
     ConversationMessage,
     EscalationRecord,
     ToolExecution,
@@ -26,6 +27,6 @@ from app.models.platform import (
 __all__ = [
     "Base", "Tenant", "Role", "User", "BusinessProfile", "SupportedLanguage", "Agent",
     "AgentConfiguration", "SarvamAgentLink", "DatabaseConnection", "ToolDefinition", "KnowledgeDocument", "KnowledgeChunk",
-    "Customer", "Lead", "Appointment", "Conversation", "ConversationMessage", "CallSession",
+    "Customer", "Lead", "Appointment", "Conversation", "ConversationAnalysis", "ConversationMessage", "CallSession",
     "ToolExecution", "EscalationRecord", "AnalyticsEvent", "AuditLog",
 ]

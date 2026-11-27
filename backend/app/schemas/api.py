@@ -181,6 +181,11 @@ class ConversationOut(ORM):
     resolved: bool | None
     created_at: datetime
     ended_at: datetime | None
+    # From the post-call analyst, when it has analysed this conversation.
+    sentiment: str | None = None
+    sentiment_score: float | None = None
+    outcome: str | None = None
+    needs_human: bool = False
 
 
 class MessageOut(ORM):

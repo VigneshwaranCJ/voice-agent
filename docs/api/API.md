@@ -84,12 +84,13 @@ Scope comes from the principal: the selected business's users, or platform admin
 ## Calls & analytics
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/conversations` | Filters: `status`, `channel`, `language`, `agent_id`, `date_from`, `date_to`, `q` (searches summaries and transcripts); `limit` ≤ 500, `offset` |
-| GET | `/conversations/{id}` | Transcript, tool history and escalations |
+| GET | `/conversations` | Filters: `status`, `channel`, `language`, `agent_id`, `date_from`, `date_to`, `q` (searches summaries and transcripts), `sentiment` (`positive`, `neutral`, `negative`, `mixed`); `limit` ≤ 500, `offset`. Analysed rows include `sentiment`, `sentiment_score`, `outcome`, `needs_human` |
+| GET | `/conversations/{id}` | Transcript, tool history, escalations and `analysis` (the post-call analyst's findings, or `null`) |
+| POST | `/conversations/{id}/analysis` | Runs the post-call analyst again on an ended conversation (409 while active). Returns the analysis; `status` is `done`, `failed`, `not_configured` or `skipped` |
 | GET | `/escalations`, `/leads`, `/appointments` | Leads and escalations include `assigned_to` and `notes` |
 | PATCH | `/leads/{id}` | `{status?, assigned_to?, notes?}`; `assigned_to: null` unassigns |
 | PATCH | `/escalations/{id}` | `{status?, assigned_to?, notes?}`; assigning an open escalation marks it `assigned` |
-| GET | `/analytics/overview` | KPIs; `daily` and `hours` are in the business's timezone; `leads`, `escalations` by status |
+| GET | `/analytics/overview` | KPIs; `daily` and `hours` are in the business's timezone; `leads`, `escalations` by status; `sentiment` (`analysed`, `by_label`, `average_score`, `needs_human`) |
 
 ## Public widget
 | Method | Path | Notes |

@@ -47,6 +47,24 @@ export interface Conversation {
   id: string; agent_id: string; channel: string; status: string; language: string | null
   languages_used: string[]; intents: string[]; summary: string | null; resolved: boolean | null
   created_at: string; ended_at: string | null
+  /** From the post-call analyst, once it has analysed the conversation. */
+  sentiment?: Sentiment | null; sentiment_score?: number | null; outcome?: string | null; needs_human?: boolean
+}
+
+export type Sentiment = 'positive' | 'neutral' | 'negative' | 'mixed'
+
+/** The post-call analyst's findings. Only status "done" carries them; the other statuses explain why not. */
+export interface Analysis {
+  status: 'done' | 'failed' | 'not_configured' | 'skipped'
+  sentiment: Sentiment | null; sentiment_score: number | null; sentiment_trend: 'improving' | 'steady' | 'worsening' | null
+  emotions: string[]; outcome: string | null; resolved: boolean | null; summary: string | null; topics: string[]
+  key_quotes: string[]; follow_ups: { action: string; priority: 'low' | 'normal' | 'high' }[]; needs_human: boolean
+  agent_issues: string[]; checks: string[]; escalation_id: string | null; attempts: number; model: string | null
+  error: string | null; updated_at: string
+}
+
+export const SENTIMENT_TONE: Record<Sentiment, 'green' | 'gray' | 'red' | 'amber'> = {
+  positive: 'green', neutral: 'gray', negative: 'red', mixed: 'amber',
 }
 
 export interface Message { id: string; role: string; content: string; language: string | null; interrupted: boolean; meta: Record<string, unknown>; created_at: string }

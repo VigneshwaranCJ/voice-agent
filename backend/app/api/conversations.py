@@ -6,10 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analysis.agent import analyse_conversation, analysis_out
 from app.core.deps import DB, Principal, audit, tenant_scope
 from app.core.timeutil import as_utc
 from app.models import (
-    Appointment, BusinessProfile, CallSession, Conversation, ConversationMessage, EscalationRecord, Lead, ToolExecution,
+    Appointment, BusinessProfile, CallSession, Conversation, ConversationAnalysis, ConversationMessage, EscalationRecord,
+    Lead, ToolExecution,
 )
 from app.schemas.api import ConversationOut, EscalationUpdateIn, LeadUpdateIn, MessageOut
 
@@ -19,6 +21,7 @@ router = APIRouter(tags=["calls"])
 @router.get("/conversations", response_model=list[ConversationOut])
 async def list_conversations(agent_id: str | None = None, status: str | None = None, channel: str | None = None,
                              language: str | None = None, q: str | None = Query(None, max_length=200),
+                             sentiment: str | None = Query(None, pattern="^(positive|neutral|negative|mixed)$"),
                              date_from: datetime | None = None, date_to: datetime | None = None,
                              limit: int = Query(50, ge=1, le=500), offset: int = Query(0, ge=0),
                              p: Principal = Depends(tenant_scope), db: AsyncSession = DB):
@@ -42,7 +45,23 @@ async def list_conversations(agent_id: str | None = None, status: str | None = N
             ConversationMessage.tenant_id == p.tenant_id, ConversationMessage.conversation_id == Conversation.id,
             ConversationMessage.content.ilike(like)).exists()
         stmt = stmt.where(Conversation.summary.ilike(like) | in_transcript)
-    return (await db.execute(stmt.order_by(Conversation.created_at.desc()).limit(limit).offset(offset))).scalars().all()
+    if sentiment:
+        stmt = stmt.where(select(ConversationAnalysis.id).where(
+            ConversationAnalysis.tenant_id == p.tenant_id, ConversationAnalysis.conversation_id == Conversation.id,
+            ConversationAnalysis.sentiment == sentiment).exists())
+    rows = (await db.execute(stmt.order_by(Conversation.created_at.desc()).limit(limit).offset(offset))).scalars().all()
+    found = {a.conversation_id: a for a in (await db.execute(select(ConversationAnalysis).where(
+        ConversationAnalysis.tenant_id == p.tenant_id,
+        ConversationAnalysis.conversation_id.in_([c.id for c in rows])))).scalars()} if rows else {}
+    out = []
+    for c in rows:
+        item = ConversationOut.model_validate(c)
+        a = found.get(c.id)
+        if a and a.status == "done":
+            item.sentiment, item.sentiment_score, item.outcome = a.sentiment, a.sentiment_score, a.outcome
+            item.needs_human = a.needs_human
+        out.append(item)
+    return out
 
 
 def _utc(dt: datetime) -> datetime:
@@ -66,6 +85,8 @@ async def conversation_detail(conv_id: str, p: Principal = Depends(tenant_scope)
         EscalationRecord.tenant_id == p.tenant_id, EscalationRecord.conversation_id == conv_id))).scalars().all()
     call = (await db.execute(select(CallSession).where(
         CallSession.tenant_id == p.tenant_id, CallSession.conversation_id == conv_id))).scalars().first()
+    analysis = (await db.execute(select(ConversationAnalysis).where(
+        ConversationAnalysis.tenant_id == p.tenant_id, ConversationAnalysis.conversation_id == conv_id))).scalar_one_or_none()
     return {
         "conversation": ConversationOut.model_validate(conv),
         "messages": [MessageOut.model_validate(m) for m in msgs],
@@ -75,7 +96,23 @@ async def conversation_detail(conv_id: str, p: Principal = Depends(tenant_scope)
                          "status": e.status, "at": e.created_at} for e in escalations],
         "call": {"duration_seconds": call.duration_seconds, "status": call.status, "end_reason": call.end_reason,
                  "recording_consent": call.recording_consent} if call else None,
+        "analysis": analysis_out(analysis),
     }
+
+
+@router.post("/conversations/{conv_id}/analysis")
+async def rerun_analysis(conv_id: str, request: Request, p: Principal = Depends(tenant_scope), db: AsyncSession = DB):
+    """Run the post-call analyst again on an ended conversation (e.g. after a transcript refresh or a failure)."""
+    conv = (await db.execute(select(Conversation).where(Conversation.tenant_id == p.tenant_id,
+                                                        Conversation.id == conv_id))).scalar_one_or_none()
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+    if conv.status == "active":
+        raise HTTPException(409, "This conversation is still in progress; end it first")
+    await audit(db, request, p, "analysis.rerun", "conversation", conv_id)
+    await db.commit()
+    row = await analyse_conversation(db, p.tenant_id, conv_id)
+    return analysis_out(row)
 
 
 @router.get("/escalations")
@@ -189,6 +226,12 @@ async def analytics_overview(days: int = Query(30, le=365), p: Principal = Depen
     escalations = dict((await db.execute(select(EscalationRecord.status, func.count()).where(
         EscalationRecord.tenant_id == t, EscalationRecord.created_at >= since).group_by(EscalationRecord.status))).all())
     ended = sum(v for k, v in by_status.items() if k != "active")
+    done = select(ConversationAnalysis).where(
+        ConversationAnalysis.tenant_id == t, ConversationAnalysis.status == "done",
+        ConversationAnalysis.conversation_id.in_(select(conv_base.c.id))).subquery()
+    by_sentiment = dict((await db.execute(select(done.c.sentiment, func.count()).group_by(done.c.sentiment))).all())
+    avg_sentiment = (await db.execute(select(func.avg(done.c.sentiment_score)))).scalar()
+    needs_human = await scalar(select(func.count()).select_from(done).where(done.c.needs_human.is_(True)))
     return {
         "days": days, "total_conversations": total, "total_calls": call_total,
         "answered_calls": call_total - missed, "missed_calls": missed,
@@ -202,4 +245,7 @@ async def analytics_overview(days: int = Query(30, le=365), p: Principal = Depen
         "hours": [per_hour.get(h, 0) for h in range(24)], "timezone": tz_name,
         "leads": {"total": sum(leads.values()), "by_status": leads},
         "escalations": {"total": sum(escalations.values()), "by_status": escalations},
+        "sentiment": {"analysed": sum(by_sentiment.values()), "by_label": by_sentiment,
+                      "average_score": round(float(avg_sentiment), 2) if avg_sentiment is not None else None,
+                      "needs_human": needs_human},
     }

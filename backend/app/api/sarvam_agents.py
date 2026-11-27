@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analysis.agent import analyse_conversation
 from app.context.manager import load_agent_bundle
 from app.context.state import ConversationState
 from app.core.config import get_settings
@@ -31,7 +32,6 @@ from app.core.deps import DB, Principal, audit, tenant_admin_scope, tenant_scope
 from app.core.logging import log
 from app.core.timeutil import as_utc
 from app.models import Agent, AnalyticsEvent, CallSession, Conversation, ConversationMessage, SarvamAgentLink
-from app.orchestration.lifecycle import summarise
 from app.security.crypto import new_token
 from app.seed import LANGS
 from app.tools.registry import ToolContext, execute_tool, get_tool
@@ -238,13 +238,10 @@ async def save_transcript(db: AsyncSession, link: SarvamAgentLink, interaction_i
         call.ended_at = call.ended_at or now
         call.end_reason = call.end_reason or "sarvam_call_ended"
     await db.commit()
-    state = ConversationState(conversation_id=conv_id, tenant_id=link.tenant_id, agent_id=link.agent_id,
-                              channel=CHANNEL, history=history)
-    summary = await summarise(state)  # best-effort; None without an LLM key
-    if summary:
-        conv.summary = summary
-        await db.commit()
-    return {"ok": True, "pending": False, "conversation_id": conv_id, "messages": len(messages)}
+    # Post-call analyst: summary, sentiment, outcome, follow-ups. Best-effort; its row records any failure.
+    analysis = await analyse_conversation(db, link.tenant_id, conv_id)
+    return {"ok": True, "pending": False, "conversation_id": conv_id, "messages": len(messages),
+            "analysis": analysis.status if analysis else None}
 
 
 class CallIn(BaseModel):

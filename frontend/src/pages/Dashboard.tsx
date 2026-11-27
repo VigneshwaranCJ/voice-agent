@@ -12,6 +12,47 @@ interface Overview {
   top_tools: { tool: string; count: number }[]; daily: { date: string; count: number }[]
   hours: number[]; timezone: string; by_status: Record<string, number>
   leads: { total: number; by_status: Record<string, number> }; escalations: { total: number; by_status: Record<string, number> }
+  sentiment?: { analysed: number; by_label: Record<string, number>; average_score: number | null; needs_human: number }
+}
+
+const SENTIMENT_ORDER = ['positive', 'neutral', 'mixed', 'negative'] as const
+const SENTIMENT_BAR: Record<string, string> = {
+  positive: 'bg-emerald-500', neutral: 'bg-slate-300', mixed: 'bg-amber-400', negative: 'bg-rose-500',
+}
+
+/** Share of analysed conversations per sentiment as one stacked bar, with the counts listed underneath. */
+function SentimentSummary({ s }: { s: NonNullable<Overview['sentiment']> }) {
+  if (!s.analysed) return <div className="py-6 text-center text-sm text-slate-500">No analysed conversations yet. Analysis runs when a conversation ends.</div>
+  const score = s.average_score
+  return (
+    <div className="grid gap-5 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div>
+        <div className="flex h-3 overflow-hidden rounded-full bg-slate-100" role="img"
+          aria-label={SENTIMENT_ORDER.map((k) => `${k} ${s.by_label[k] ?? 0}`).join(', ')}>
+          {SENTIMENT_ORDER.map((k) => (s.by_label[k] ?? 0) > 0 && (
+            <div key={k} className={`${SENTIMENT_BAR[k]} transition-[width] duration-700`} style={{ width: `${((s.by_label[k] ?? 0) / s.analysed) * 100}%` }} title={`${k}: ${s.by_label[k]}`} />
+          ))}
+        </div>
+        <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+          {SENTIMENT_ORDER.map((k) => (
+            <li key={k}>
+              <Link to={`/calls?sentiment=${k}`} className="group flex items-center gap-2 capitalize text-slate-700 hover:text-brand-600">
+                <span aria-hidden className={`h-2 w-2 rounded-full ${SENTIMENT_BAR[k]}`} />{k}
+                <span className="font-semibold tabular-nums text-slate-900">{s.by_label[k] ?? 0}</span>
+                <span className="tabular-nums text-slate-400">{Math.round(((s.by_label[k] ?? 0) / s.analysed) * 100)}%</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex gap-6 text-sm sm:border-l sm:border-slate-200 sm:pl-6">
+        <div><div className="text-slate-500">Average score</div>
+          <div className="text-2xl font-semibold tabular-nums text-slate-900" title="−1 very negative … +1 very positive">{score == null ? '—' : `${score > 0 ? '+' : ''}${score.toFixed(2)}`}</div></div>
+        <div><div className="text-slate-500">Need a person</div>
+          <Link to="/follow-ups?tab=escalations" className="text-2xl font-semibold tabular-nums text-slate-900 hover:text-brand-500">{s.needs_human}</Link></div>
+      </div>
+    </div>
+  )
 }
 
 const DAYS = 30
@@ -269,6 +310,11 @@ export default function Dashboard() {
             {data.leads && data.escalations && (
               <Panel title="Leads & follow-ups" subtitle={`${data.leads.total} leads captured`}>
                 <FollowUpSummary leads={data.leads} escalations={data.escalations} />
+              </Panel>
+            )}
+            {data.sentiment && (
+              <Panel className="lg:col-span-3" title="Caller sentiment" subtitle={`From the AI analysis of ${data.sentiment.analysed} ended conversation${data.sentiment.analysed === 1 ? '' : 's'}`}>
+                <SentimentSummary s={data.sentiment} />
               </Panel>
             )}
           </div>

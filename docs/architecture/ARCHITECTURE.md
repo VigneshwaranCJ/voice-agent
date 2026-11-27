@@ -63,6 +63,18 @@ An agent selects which tools are enabled (`agent_configurations.enabled_tools`).
 
 Structured facts (availability, pricing, schedules) are *never* put in the prompt wholesale; the LLM must call tools. The system prompt forbids inventing them.
 
+### Post-call analyst agent
+
+`app/analysis/agent.py` runs after a conversation ends: from `end_conversation` (text chat, widget) and from `save_transcript` (Sarvam calls). It can also be re-run with `POST /conversations/{id}/analysis`.
+
+1. **Evidence.** It loads the transcript, tool runs, escalations and call record, all filtered by the conversation's `tenant_id`.
+2. **Reason.** The LLM must hand in its findings by calling `submit_analysis`, a tool whose parameters are the `AnalysisIn` Pydantic schema.
+3. **Self-correct.** A missing or invalid submission goes back to the model with the validation errors. It gets up to 3 attempts.
+4. **Verify.** Recorded facts override the model. Quotes not found in the caller's words are dropped. "booked" needs a successful booking tool run, and "lead_captured" a successful write tool. Escalated conversations stay escalated. Each correction is listed in `checks`.
+5. **Act.** It saves one `conversation_analyses` row per conversation and replaces the conversation's summary. It sets `resolved` if nothing else did. If a person should follow up and nothing is open, it opens a `follow_up` escalation, once per conversation.
+
+It never raises for model trouble. The row's `status` (`done`, `failed`, `not_configured`, `skipped`) says what happened. It is industry-agnostic: it reads tool registry flags, never industry tables.
+
 ### Tenant isolation
 
 - Every tenant-owned row carries `tenant_id`; all repository/tool queries filter by it (`ToolContext.tenant_id` is fixed by the session, never by LLM arguments).
@@ -91,7 +103,7 @@ Failure handling: STT/TTS disconnects are reported to the client and retried onc
 
 ## Data model
 
-Core tables: `tenants, users, roles, business_profiles, agents, agent_configurations, voice_profiles, supported_languages, database_connections, knowledge_documents, knowledge_chunks, customers, conversations, conversation_messages, call_sessions, call_events, tool_definitions, tool_executions, appointments, leads, escalation_records, analytics_events, audit_logs`.
+Core tables: `tenants, users, roles, business_profiles, agents, agent_configurations, voice_profiles, supported_languages, database_connections, knowledge_documents, knowledge_chunks, customers, conversations, conversation_messages, conversation_analyses, call_sessions, call_events, tool_definitions, tool_executions, appointments, leads, escalation_records, analytics_events, audit_logs`.
 
 Industry tables: `properties, sales_executives` (real estate), `departments, doctors, doctor_slots` (healthcare). Site visits and doctor bookings both go to the shared `appointments` table.
 
