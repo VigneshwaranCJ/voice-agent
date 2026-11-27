@@ -1,9 +1,16 @@
 @import "tailwindcss";
 
-/* Apple-style design tokens. `slate` is remapped to Apple's neutral greys and `brand` to Apple blue, so
-   every page picks up the new look through its existing utility classes. */
+/* Design tokens. `slate` is remapped to a neutral grey ramp and `brand` to the product blue, so every page picks
+   up the look through its existing utility classes.
+
+   Type scale (use these sizes only):
+     12px  text-xs    overlines, table headers, badges, timestamps and other metadata
+     14px  text-sm    body, table cells, form labels, inputs, buttons, help text
+     16px  text-base  card titles, stat labels, page subtitles
+     32px+            stat values and page titles */
 @theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Plus Jakarta Sans", "Noto Sans Tamil", ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-brand-50: #eaf3fe;
   --color-brand-100: #d3e6fd;
@@ -32,68 +39,195 @@
   --color-pink-accent: #e94f9a;
 }
 
-html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-body {
-  @apply bg-slate-50 text-slate-800; font-feature-settings: "cv11", "ss01"; letter-spacing: -0.01em;
-  /* soft ambient light behind every page */
-  background-image:
-    radial-gradient(60rem 30rem at 85% -10%, rgb(0 113 227 / 0.07), transparent 70%),
-    radial-gradient(50rem 28rem at -10% 10%, rgb(142 92 247 / 0.06), transparent 70%);
-  background-attachment: fixed;
-}
-h1, h2, h3 { letter-spacing: -0.025em; }
-::selection { background: rgb(0 113 227 / 0.18); }
+@layer base {
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body {
+    @apply bg-slate-50 font-sans text-sm text-slate-800;
+    /* soft ambient light behind every page */
+    background-image:
+      radial-gradient(60rem 30rem at 85% -10%, rgb(0 113 227 / 0.07), transparent 70%),
+      radial-gradient(50rem 28rem at -10% 10%, rgb(142 92 247 / 0.06), transparent 70%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3 { letter-spacing: -0.02em; }
+  ::selection { background: rgb(0 113 227 / 0.18); }
 
-/* Surfaces */
-.card {
-  @apply relative rounded-3xl bg-white p-6;
-  box-shadow: var(--shadow-card), inset 0 0 0 1px rgb(0 0 0 / 0.04);
-}
-.card-hover { transition: transform 0.5s var(--ease-apple), box-shadow 0.5s var(--ease-apple); }
-.card-hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift), inset 0 0 0 1px rgb(0 0 0 / 0.04); }
-/* gradient text for hero words */
-.text-gradient {
-  background: linear-gradient(100deg, var(--color-brand-500) 0%, var(--color-violet-accent) 55%, var(--color-pink-accent) 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.eyebrow { @apply text-[13px] font-semibold uppercase tracking-[0.12em] text-brand-500; }
-/* icon tile used by stats and headers */
-.icon-tile { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white; box-shadow: 0 6px 16px -6px currentColor; }
-.glass { @apply bg-white/72 backdrop-blur-2xl backdrop-saturate-150; }
+  /* Inline code in running text. Code inside <pre> blocks keeps the block's own styling. */
+  :not(pre) > code { @apply rounded-md bg-black/[0.05] px-1.5 py-0.5 font-mono text-[0.85em]; }
 
-/* Controls */
-.btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand-500 px-5 py-2 text-sm font-medium text-white
-    transition duration-300 hover:bg-brand-600 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
-  transition-timing-function: var(--ease-apple);
+  /* One checkbox, one size, everywhere: never shrinks next to long labels. */
+  input[type=checkbox] {
+    @apply m-0 inline-grid h-[18px] w-[18px] shrink-0 cursor-pointer appearance-none place-content-center rounded-[5px]
+      border-[1.5px] border-slate-300 bg-white align-middle transition-colors duration-150;
+  }
+  input[type=checkbox]:hover { @apply border-brand-500; }
+  input[type=checkbox]:checked {
+    @apply border-brand-500 bg-brand-500;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>");
+    background-size: 12px; background-position: center; background-repeat: no-repeat;
+  }
+  input[type=checkbox]:focus-visible { @apply outline-none ring-4 ring-brand-500/20; }
+  input[type=checkbox]:disabled { @apply cursor-not-allowed opacity-50; }
+  input[type=radio] { accent-color: var(--color-brand-500); width: 18px; height: 18px; flex-shrink: 0; }
+
+  input[type=file] { @apply text-sm text-slate-600; }
+  input[type=file]::file-selector-button {
+    @apply mr-3 h-9 cursor-pointer rounded-full border-0 bg-slate-100 px-4 text-sm font-medium text-slate-800 transition-colors hover:bg-slate-200;
+  }
+
+  /* Scrollbars: a slim rounded thumb on a transparent track, darker on hover and while dragging. The transparent
+     border insets the thumb, so it reads as 6px inside a 12px hit area. A translucent black thumb suits both the
+     grey page and white cards. */
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgb(0 0 0 / 0.16); border: 3px solid transparent; border-radius: 9999px; background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background-color: rgb(0 0 0 / 0.3); }
+  ::-webkit-scrollbar-thumb:active { background-color: rgb(0 0 0 / 0.42); }
+  /* light thumb on dark code blocks */
+  pre::-webkit-scrollbar-thumb { background-color: rgb(255 255 255 / 0.22); }
+  pre::-webkit-scrollbar-thumb:hover { background-color: rgb(255 255 255 / 0.36); }
+  /* Firefox has no ::-webkit-scrollbar; give it the standard thin scrollbar in the same colours. (Only there:
+     in Chromium the standard properties would override the rounded styling above.) */
+  @supports not selector(::-webkit-scrollbar) {
+    * { scrollbar-width: thin; scrollbar-color: rgb(0 0 0 / 0.22) transparent; }
+    pre { scrollbar-color: rgb(255 255 255 / 0.3) transparent; }
+  }
 }
-.btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-slate-200/70 px-4 py-2 text-sm font-medium text-slate-800
-    transition duration-300 hover:bg-slate-300/70 active:scale-[0.97] disabled:opacity-40;
-  transition-timing-function: var(--ease-apple);
+
+/* Components live in their own layer so utility classes on an element (`mt-4`, `w-auto`, …) can override them. */
+@layer components {
+  /* Surfaces */
+  .card {
+    @apply relative rounded-3xl bg-white p-5 sm:p-6;
+    box-shadow: var(--shadow-card), inset 0 0 0 1px rgb(0 0 0 / 0.04);
+  }
+  .card-hover { transition: transform 0.5s var(--ease-apple), box-shadow 0.5s var(--ease-apple); }
+  /* Lift only on devices that really hover: on touch screens a tap would leave the card stuck in the raised state. */
+  @media (hover: hover) {
+    .card-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift), inset 0 0 0 1px rgb(0 0 0 / 0.04); }
+  }
+  /* A card that holds a table: tighter padding so the table can use the width. */
+  .card-table { @apply overflow-x-auto px-3 py-2; }
+  .glass { @apply bg-white/75 backdrop-blur-2xl backdrop-saturate-150; }
+
+  /* Text roles */
+  .text-gradient {
+    background: linear-gradient(100deg, var(--color-brand-500) 0%, var(--color-violet-accent) 55%, var(--color-pink-accent) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.14em] text-brand-500; }
+  /* not ".overline": that is a Tailwind utility (a line over the text) */
+  .section-label { @apply text-xs font-semibold uppercase tracking-wider text-slate-500; }
+  .card-title { @apply text-base font-semibold tracking-tight text-slate-900; }
+  .card-desc { @apply mt-1 text-sm leading-relaxed text-slate-500; }
+  .hint { @apply mt-1.5 text-sm text-slate-500; }
+  .label { @apply mb-1.5 block text-sm font-medium text-slate-700; }
+
+  /* icon tile used by stats and headers (flat: no glow) */
+  .icon-tile { @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white; }
+
+  /* Buttons: 40px tall by default, 36px with .btn-sm. */
+  .btn, .btn-ghost {
+    @apply inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-sm font-medium
+      transition duration-300 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100;
+    transition-timing-function: var(--ease-apple);
+  }
+  .btn { @apply bg-brand-500 text-white hover:bg-brand-600; }
+  .btn-ghost { @apply bg-slate-900/[0.06] text-slate-800 hover:bg-slate-900/[0.1]; }
+  .btn-sm { @apply h-9 px-4; }
+  .btn-xs { @apply h-7 px-3 text-xs; }
+  .btn-link { @apply inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline; }
+
+  /* Form fields: 40px tall by default, 36px with .input-sm. */
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 transition
+      placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15;
+  }
+  input.input, select.input, button.input { @apply h-10 py-0; }
+  .input.input-sm { @apply h-9; }
+  .input[aria-expanded=true] { @apply border-brand-500 ring-4 ring-brand-500/15; }
+  textarea.input { @apply py-2.5 leading-relaxed; }
+  /* iOS zooms the page into any text field under 16px when it's tapped; phones get 16px fields instead. */
+  input.input, textarea.input { @apply max-sm:text-base; }
+  select.input {
+    @apply cursor-pointer appearance-none pr-9;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+    background-repeat: no-repeat; background-position: right 0.9rem center;
+  }
+
+  /* A selectable row (checkbox + title + description), highlighted when ticked. */
+  .check-card {
+    @apply flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-slate-300;
+  }
+  .check-card:has(input:checked) { @apply border-brand-300 bg-brand-50/60; }
+  /* A compact selectable pill (checkbox + short label), e.g. languages. */
+  .check-pill {
+    @apply inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 text-sm text-slate-700 transition-colors hover:border-slate-300;
+  }
+  .check-pill:has(input:checked) { @apply border-brand-300 bg-brand-50/60 text-slate-900; }
+  /* A labelled single checkbox (setting on/off). */
+  .check-row { @apply flex cursor-pointer items-center gap-2.5 text-sm text-slate-700; }
+
+  /* Filter chips (Calls, Follow-ups): 36px, the same height as .input-sm and .btn-sm next to them. */
+  .chip {
+    @apply inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-white px-3.5 text-sm capitalize text-slate-600 ring-1 ring-inset ring-slate-200 transition hover:text-slate-900 hover:ring-slate-300;
+  }
+  .chip[aria-pressed=true] { @apply bg-slate-900 text-white ring-slate-900 hover:text-white; }
+
+  /* pill tabs */
+  .seg { @apply inline-flex rounded-full bg-slate-900/[0.06] p-1; }
+  .seg > button, .seg > a { @apply h-8 cursor-pointer whitespace-nowrap rounded-full px-4 text-sm capitalize text-slate-600 transition-all duration-300 hover:text-slate-900; }
+  .seg > [aria-pressed=true], .seg > [aria-checked=true], .seg > [aria-selected=true] { @apply bg-white font-medium text-slate-900 shadow-sm; }
+
+  /* loading shimmer */
+  .skeleton { @apply rounded-xl; background: linear-gradient(90deg, #efeff2 25%, #f7f7f9 50%, #efeff2 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+
+  /* Tables */
+  .table { @apply w-full text-left text-sm; }
+  .table th { @apply whitespace-nowrap border-b border-slate-200 px-3 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500; }
+  .table td { @apply border-b border-slate-100 px-3 py-3.5 align-middle text-slate-700; }
+  .table tbody tr:last-child td { @apply border-b-0; }
+  .table tbody tr { @apply transition-colors hover:bg-slate-50/80; }
+
+  /* Small colored notices inside cards (warnings, results). */
+  .note { @apply rounded-xl px-3.5 py-2.5 text-sm ring-1 ring-inset; }
+  .note-amber { @apply bg-amber-50 text-amber-900 ring-amber-200; }
+  .note-green { @apply bg-emerald-50 text-emerald-800 ring-emerald-200; }
+  .note-red { @apply bg-rose-50 text-rose-800 ring-rose-200; }
+  .note-gray { @apply bg-slate-50 text-slate-700 ring-slate-200; }
 }
-.btn-link { @apply inline-flex items-center gap-1 text-sm font-medium text-brand-500 hover:underline; }
-.input {
-  @apply w-full rounded-xl border border-transparent bg-slate-100 px-3.5 py-2.5 text-sm text-slate-800 transition
-    placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/15;
+
+/* Tables on phones: each row becomes a card of label / value lines, so nothing needs sideways scrolling.
+   Opt in with .table-stack and give each cell data-label="Column"; cells without a label (row actions, expanded
+   notes) span the full width. Unlayered on purpose: it has to beat per-cell utilities like whitespace-nowrap,
+   text-right and max-w-*, which are right for the desktop table. */
+@media (max-width: 767px) {
+  .table-stack thead { display: none; }
+  .table-stack, .table-stack tbody, .table-stack tr { display: block; width: 100%; }
+  .table-stack tbody tr { padding: 0.875rem 0.25rem; border-bottom: 1px solid var(--color-slate-100); }
+  .table-stack tbody tr:last-child { border-bottom: 0; }
+  .table-stack tbody tr:hover { background: transparent; }
+  /* Label on the left (absolutely placed), the cell's own content flows in one column on the right, however many
+     elements it has (a name and a phone, text and a budget line, …). */
+  .table-stack td {
+    display: block; position: relative; padding: 0.375rem 0 0.375rem 7.25rem;
+    border: 0; max-width: none; white-space: normal; text-align: left;
+  }
+  /* The trailing space ends the label's word; without it, text-transform: capitalize on the cell's value is lost. */
+  .table-stack td::before {
+    content: attr(data-label) " "; position: absolute; left: 0; top: 0.5rem; width: 6.5rem;
+    font-size: 0.75rem; line-height: 1.125rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--color-slate-500);
+  }
+  /* centre the label against a 36px dropdown */
+  .table-stack td:has(> [role=combobox])::before { top: 50%; transform: translateY(-50%); }
+  .table-stack td:not([data-label]) { padding-left: 0; padding-top: 0.625rem; }
+  .table-stack td:not([data-label])::before { content: none; }
 }
-select.input { @apply appearance-none pr-9; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>"); background-repeat: no-repeat; background-position: right 0.9rem center; }
-.label { @apply mb-1.5 block text-[13px] font-medium text-slate-600; }
-/* native checkboxes & radios in the brand colour, a touch larger */
-input[type=checkbox], input[type=radio] { accent-color: var(--color-brand-500); width: 1rem; height: 1rem; vertical-align: -0.15em; }
-/* pill tabs */
-.seg { @apply inline-flex rounded-full bg-slate-200/70 p-1; }
-.seg > button, .seg > a { @apply rounded-full px-4 py-1.5 text-sm text-slate-600 transition-all duration-300 hover:text-slate-900; }
-.seg > [aria-pressed=true], .seg > [aria-checked=true], .seg > [aria-selected=true] { @apply bg-white font-medium text-slate-900 shadow-sm; }
-/* loading shimmer */
+
 @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
-.skeleton { @apply rounded-xl; background: linear-gradient(90deg, #efeff2 25%, #f7f7f9 50%, #efeff2 75%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
-
-/* Tables */
-.table { @apply w-full text-left text-sm; }
-.table th { @apply border-b border-slate-200 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400; }
-.table td { @apply border-b border-slate-100 px-3 py-3 align-top; }
-.table tbody tr { @apply transition-colors hover:bg-slate-50; }
 
 /* Page entrance */
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -101,6 +235,9 @@ input[type=checkbox], input[type=radio] { accent-color: var(--color-brand-500); 
 /* opacity only: never transform a wrapper that holds position:fixed children */
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 .animate-fade { animation: fade 0.45s var(--ease-apple) both; }
+/* popovers: quick drop-in, opacity + small offset */
+@keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+.animate-pop { animation: pop 0.18s var(--ease-apple) both; transform-origin: top; }
 
 /* Custom pointer: hide the system arrow only while our pointer is active (fine pointers, motion allowed).
    Text fields keep the native I-beam so typing and selecting stay precise. */
@@ -126,7 +263,7 @@ html.custom-cursor :is(input:not([type=range]):not([type=checkbox]):not([type=ra
 .eq > span:nth-child(3) { animation-delay: -0.6s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-rise, .animate-fade, .stagger > * { animation: none; }
+  .animate-rise, .animate-fade, .animate-pop, .stagger > * { animation: none; }
   .ring-spin, .eq > span { animation: none; }
   .card-hover:hover { transform: none; }
   .skeleton { animation: none; }

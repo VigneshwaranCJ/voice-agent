@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Badge, Empty, ErrorNote, PageHeader, fmtDate } from '../components/ui'
+import { Select } from '../components/Select'
 import { useToast } from '../components/Toast'
 import { useApi } from '../hooks/useApi'
 import { api } from '../services/api'
@@ -18,6 +19,7 @@ interface Member { id: string; email: string; full_name: string; is_active: bool
 
 const LEAD_STATUSES = ['new', 'qualified', 'contacted', 'won', 'lost'] as const
 const ESC_STATUSES = ['open', 'assigned', 'resolved'] as const
+const statusOptions = (list: readonly string[]) => list.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))
 
 
 export default function FollowUps() {
@@ -29,10 +31,9 @@ export default function FollowUps() {
     <div>
       <PageHeader eyebrow="Activity" title="Follow-ups" subtitle="Leads the agent captured and calls it handed to a person. Assign them, track progress, keep notes."
         actions={
-          <div className="flex rounded-full bg-slate-900/[0.05] p-1 text-sm">
+          <div className="seg">
             {(['leads', 'escalations'] as const).map((t) => (
-              <button key={t} onClick={() => setParams(t === 'leads' ? {} : { tab: t })}
-                className={`rounded-full px-4 py-1.5 capitalize transition ${tab === t ? 'bg-white font-medium text-slate-900 shadow-sm' : 'text-slate-600'}`}>{t}</button>
+              <button key={t} aria-pressed={tab === t} onClick={() => setParams(t === 'leads' ? {} : { tab: t })}>{t}</button>
             ))}
           </div>
         } />
@@ -50,13 +51,12 @@ function useFilter<T extends { status: string }>(rows: T[] | null, statuses: rea
   const bar = (onExport: () => void) => (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       {['all', ...statuses].map((s) => (
-        <button key={s} onClick={() => setStatus(s)}
-          className={`rounded-full px-3 py-1 text-sm capitalize ring-1 ring-inset transition ${status === s ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300'}`}>
-          {s}{s !== 'all' && <span className="ml-1.5 tabular-nums opacity-70">{counts[s]}</span>}
+        <button key={s} onClick={() => setStatus(s)} aria-pressed={status === s} className="chip">
+          {s}{s !== 'all' && <span className="tabular-nums opacity-60">{counts[s]}</span>}
         </button>
       ))}
-      <input aria-label="Search" className="input ml-auto w-56 py-1.5" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
-      <button className="btn-ghost" onClick={onExport} disabled={!shown.length}>Export CSV</button>
+      <input aria-label="Search" type="search" className="input input-sm w-full sm:ml-auto sm:w-60" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <button className="btn-ghost btn-sm" onClick={onExport} disabled={!shown.length}>Export CSV</button>
     </div>
   )
   return { shown, bar }
@@ -65,10 +65,8 @@ function useFilter<T extends { status: string }>(rows: T[] | null, statuses: rea
 function AssigneeSelect({ value, people, onChange, label }: { value: string | null; people: string[]; onChange: (v: string | null) => void; label: string }) {
   const options = value && !people.includes(value) ? [value, ...people] : people
   return (
-    <select aria-label={label} className="input py-1.5" value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">Unassigned</option>
-      {options.map((p) => <option key={p} value={p}>{p}</option>)}
-    </select>
+    <Select label={label} size="sm" className="min-w-40" value={value ?? ''} onChange={(v) => onChange(v || null)}
+      options={[{ value: '', label: 'Unassigned' }, ...options.map((p) => ({ value: p, label: p }))]} />
   )
 }
 
@@ -77,7 +75,7 @@ function Notes({ value, onSave }: { value: string; onSave: (v: string) => Promis
   const [busy, setBusy] = useState(false)
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-      <textarea aria-label="Notes" className="input h-20 flex-1" placeholder="Called back, interested in a site visit on Saturday…" maxLength={4000}
+      <textarea aria-label="Notes" className="input h-24 flex-1" placeholder="Called back, interested in a site visit on Saturday…" maxLength={4000}
         value={text} onChange={(e) => setText(e.target.value)} />
       <button className="btn" disabled={busy || text === value} onClick={async () => { setBusy(true); await onSave(text); setBusy(false) }}>
         {busy ? 'Saving…' : 'Save notes'}</button>
@@ -103,24 +101,23 @@ function Leads({ people }: { people: string[] }) {
     <>
       <ErrorNote error={error} />
       {bar(exportCsv)}
-      <div className="card overflow-x-auto px-3 py-2">
-        {!data ? <div className="p-6 text-sm text-slate-400">Loading…</div> : shown.length ? (
-          <table className="table">
+      <div className="card card-table">
+        {!data ? <div className="p-6 text-sm text-slate-500">Loading…</div> : shown.length ? (
+          <table className="table table-stack">
             <thead><tr><th>Created</th><th>Lead</th><th>Interest</th><th>Status</th><th>Assigned to</th><th /></tr></thead>
             <tbody>{shown.map((r) => (<Fragment key={r.id}>
               <tr>
-                <td className="whitespace-nowrap text-sm text-slate-500">{fmtDate(r.at)}</td>
-                <td><div className="font-medium text-slate-900">{r.name || 'Unnamed'}</div>
-                  {r.phone && <a className="text-xs text-brand-500" href={`tel:${r.phone}`}>{r.phone}</a>}</td>
-                <td className="max-w-xs text-sm text-slate-600">{r.interest || '—'}{r.budget && <div className="text-xs text-slate-400">Budget {r.budget}</div>}</td>
-                <td><select aria-label={`Status of ${r.name}`} className="input py-1.5 capitalize" value={r.status}
-                  onChange={(e) => patch(r, { status: e.target.value }, `${r.name || 'Lead'} marked ${e.target.value}`)}>
-                  {LEAD_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
-                <td><AssigneeSelect label={`Assignee for ${r.name}`} value={r.assigned_to} people={people}
+                <td data-label="Created" className="whitespace-nowrap text-slate-500">{fmtDate(r.at)}</td>
+                <td data-label="Lead"><div className="font-medium text-slate-900">{r.name || 'Unnamed'}</div>
+                  {r.phone && <a className="text-sm text-brand-600 hover:underline" href={`tel:${r.phone}`}>{r.phone}</a>}</td>
+                <td data-label="Interest" className="max-w-xs text-slate-600">{r.interest || '—'}{r.budget && <div className="text-sm text-slate-500">Budget {r.budget}</div>}</td>
+                <td data-label="Status"><Select label={`Status of ${r.name}`} size="sm" className="min-w-36" value={r.status}
+                  onChange={(status) => patch(r, { status }, `${r.name || 'Lead'} marked ${status}`)} options={statusOptions(LEAD_STATUSES)} /></td>
+                <td data-label="Assigned to"><AssigneeSelect label={`Assignee for ${r.name}`} value={r.assigned_to} people={people}
                   onChange={(v) => patch(r, { assigned_to: v }, v ? `Assigned to ${v}` : 'Unassigned')} /></td>
                 <td className="whitespace-nowrap text-right">
-                  <button className="btn-ghost" onClick={() => setOpen(open === r.id ? null : r.id)}>{r.notes ? 'Notes •' : 'Notes'}</button>
-                  {r.conversation_id && <Link className="btn-ghost" to={`/calls/${r.conversation_id}`}>Call</Link>}
+                  <span className="inline-flex gap-1.5"><button className="btn-ghost btn-sm" onClick={() => setOpen(open === r.id ? null : r.id)}>{r.notes ? 'Notes •' : 'Notes'}</button>
+                  {r.conversation_id && <Link className="btn-ghost btn-sm" to={`/calls/${r.conversation_id}`}>Call</Link>}</span>
                 </td>
               </tr>
               {open === r.id && <tr><td colSpan={6}><Notes value={r.notes} onSave={(notes) => patch(r, { notes }, 'Notes saved')} /></td></tr>}
@@ -150,24 +147,23 @@ function Escalations({ people }: { people: string[] }) {
     <>
       <ErrorNote error={error} />
       {bar(exportCsv)}
-      <div className="card overflow-x-auto px-3 py-2">
-        {!data ? <div className="p-6 text-sm text-slate-400">Loading…</div> : shown.length ? (
-          <table className="table">
+      <div className="card card-table">
+        {!data ? <div className="p-6 text-sm text-slate-500">Loading…</div> : shown.length ? (
+          <table className="table table-stack">
             <thead><tr><th>Created</th><th>Why</th><th>Summary</th><th>Status</th><th>Assigned to</th><th /></tr></thead>
             <tbody>{shown.map((r) => (<Fragment key={r.id}>
               <tr>
-                <td className="whitespace-nowrap text-sm text-slate-500">{fmtDate(r.at)}</td>
-                <td><div className="font-medium capitalize text-slate-900">{r.reason.replace(/_/g, ' ')}</div>
+                <td data-label="Created" className="whitespace-nowrap text-slate-500">{fmtDate(r.at)}</td>
+                <td data-label="Why"><div className="mb-1 font-medium capitalize text-slate-900">{r.reason.replace(/_/g, ' ')}</div>
                   <Badge tone={r.priority === 'critical' ? 'red' : r.priority === 'high' ? 'amber' : 'gray'}>{r.priority}</Badge></td>
-                <td className="max-w-sm text-sm text-slate-600">{r.summary || '—'}</td>
-                <td><select aria-label={`Status of escalation ${r.reason}`} className="input py-1.5 capitalize" value={r.status}
-                  onChange={(e) => patch(r, { status: e.target.value }, `Marked ${e.target.value}`)}>
-                  {ESC_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select></td>
-                <td><AssigneeSelect label={`Assignee for escalation ${r.reason}`} value={r.assigned_to} people={people}
+                <td data-label="Summary" className="max-w-sm text-slate-600">{r.summary || '—'}</td>
+                <td data-label="Status"><Select label={`Status of escalation ${r.reason}`} size="sm" className="min-w-36" value={r.status}
+                  onChange={(status) => patch(r, { status }, `Marked ${status}`)} options={statusOptions(ESC_STATUSES)} /></td>
+                <td data-label="Assigned to"><AssigneeSelect label={`Assignee for escalation ${r.reason}`} value={r.assigned_to} people={people}
                   onChange={(v) => patch(r, { assigned_to: v }, v ? `Assigned to ${v}` : 'Unassigned')} /></td>
                 <td className="whitespace-nowrap text-right">
-                  <button className="btn-ghost" onClick={() => setOpen(open === r.id ? null : r.id)}>{r.notes ? 'Notes •' : 'Notes'}</button>
-                  <Link className="btn-ghost" to={`/calls/${r.conversation_id}`}>Call</Link>
+                  <span className="inline-flex gap-1.5"><button className="btn-ghost btn-sm" onClick={() => setOpen(open === r.id ? null : r.id)}>{r.notes ? 'Notes •' : 'Notes'}</button>
+                  <Link className="btn-ghost btn-sm" to={`/calls/${r.conversation_id}`}>Call</Link></span>
                 </td>
               </tr>
               {open === r.id && <tr><td colSpan={6}><Notes value={r.notes} onSave={(notes) => patch(r, { notes }, 'Notes saved')} /></td></tr>}

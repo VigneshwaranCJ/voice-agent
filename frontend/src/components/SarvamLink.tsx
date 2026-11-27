@@ -109,19 +109,19 @@ export default function SarvamLink({ agentId, enabledTools, catalog }:
 
   return (
     <div className="card">
-      <div className="mb-1 text-sm font-semibold">Sarvam Voice Agent (hosted calls)</div>
-      <p className="mb-3 text-xs text-slate-500">
+      <h2 className="card-title">Sarvam Voice Agent (hosted calls)</h2>
+      <p className="card-desc mb-4">
         Let a Sarvam Voice Agent answer calls while using this business's data. In Sarvam, add an API tool per tool
         below: method <code>POST</code>, auth <b>Bearer</b> with the token from here, body = the tool's arguments as
         JSON. Optionally send the call's Interaction ID in an <code>X-Interaction-Id</code> header. Bookings aren't
         available on this channel yet.
       </p>
       {!data.voice_configured && (
-        <div className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+        <div className="note note-amber mb-4">
           Voice calls are off on this server: set <code>SARVAM_AGENTS_API_KEY</code> (Sarvam → Settings → API key) and restart.
         </div>
       )}
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3">
         {(['org_id', 'workspace_id', 'app_id'] as const).map((k) => (
           <div key={k}>
             <label className="label">{k === 'org_id' ? 'Org ID' : k === 'workspace_id' ? 'Workspace ID' : 'App ID (agent ID)'}</label>
@@ -130,11 +130,11 @@ export default function SarvamLink({ agentId, enabledTools, catalog }:
           </div>
         ))}
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm">
+      <label className="check-row mt-4">
         <input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ ...form, enabled: e.target.checked })} />
         Accept tool calls from Sarvam for this agent
       </label>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <button className="btn" disabled={busy} onClick={save}>Save</button>
         <button className="btn-ghost" disabled={busy} onClick={rotate}>{data.has_token ? 'Replace tool token' : 'Create tool token'}</button>
         <button className="btn-ghost" disabled={!callable} onClick={testCall}
@@ -147,7 +147,7 @@ export default function SarvamLink({ agentId, enabledTools, catalog }:
         </button>
       </div>
       {check && check !== 'running' && (
-        <div className={`mt-3 rounded-xl px-3 py-2 text-xs ring-1 ring-inset ${check.connected && check.agent_spoke && !check.error ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : 'bg-red-50 text-red-800 ring-red-200'}`}>
+        <div className={`note mt-4 ${check.connected && check.agent_spoke && !check.error ? 'note-green' : 'note-red'}`}>
           <div className="font-semibold">
             {check.connected && check.agent_spoke && !check.error ? 'Connected — the agent answered' : check.connected ? 'Connected, but…' : 'Couldn’t connect'}
             <span className="font-normal text-slate-500"> · {check.seconds}s</span>
@@ -158,7 +158,7 @@ export default function SarvamLink({ agentId, enabledTools, catalog }:
         </div>
       )}
       {call && (
-        <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs ring-1 ring-inset ring-slate-200">
+        <div className="note note-gray mt-4">
           <div className="font-semibold">
             {call.status === 'connecting' ? 'Connecting…' : call.status === 'listening' ? 'Listening — speak now'
               : call.status === 'speaking' ? 'Agent speaking…' : call.status === 'error' ? 'Call failed' : 'Call ended'}
@@ -173,22 +173,22 @@ export default function SarvamLink({ agentId, enabledTools, catalog }:
         </div>
       )}
       {token && (
-        <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-inset ring-amber-200">
+        <div className="note note-amber mt-4">
           <div className="mb-1 font-semibold">Tool token — shown once. Paste it into Sarvam's Bearer auth now.</div>
           <code className="break-all">{token}</code>
-          <div className="mt-2"><button className="btn-ghost" onClick={() => copy(token)}>Copy token</button></div>
+          <div className="mt-2"><button className="btn-ghost btn-sm" onClick={() => copy(token)}>Copy token</button></div>
         </div>
       )}
       {readTools.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-5">
           <div className="label">Tool URLs</div>
-          <ul className="space-y-1 text-xs">
+          <ul className="space-y-2.5 text-sm">
             {readTools.map((t) => {
               const url = data.tool_url.replace('TOOL_NAME', t.name)
               return (
-                <li key={t.name} className="flex items-start gap-2">
-                  <button className="btn-ghost shrink-0 px-2 py-0.5" onClick={() => copy(url)}>Copy</button>
-                  <span><code className="break-all">{url}</code><br /><span className="text-slate-500">{t.description}</span></span>
+                <li key={t.name} className="flex items-start gap-3">
+                  <button className="btn-ghost btn-xs" onClick={() => copy(url)}>Copy</button>
+                  <span className="min-w-0"><code className="break-all">{url}</code><span className="mt-1 block text-slate-500">{t.description}</span></span>
                 </li>
               )
             })}

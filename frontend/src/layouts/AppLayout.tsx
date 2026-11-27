@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import ChangePasswordDialog from '../components/ChangePasswordDialog'
+import { Select } from '../components/Select'
 import { useAuth } from '../hooks/useAuth'
+import { useDismiss } from '../hooks/useDismiss'
 
 /** 24px line icons for navigation (stroke = currentColor). */
 const icon = (children: ReactNode) => (
@@ -57,7 +59,7 @@ function PickBusiness({ hasAny, onOpenMenu }: { hasAny: boolean; onOpenMenu: () 
       <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
         {hasAny ? 'Choose a business' : 'Create your first business'}
       </h1>
-      <p className="mx-auto mt-3 max-w-md text-sm text-slate-600">
+      <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-slate-500">
         {hasAny
           ? 'Agents, calls, knowledge and data belong to a business. Pick one from the account menu to manage it.'
           : 'Agents, calls, knowledge and data belong to a business. Add one to get started, then create its voice agent under Agents.'}
@@ -69,18 +71,6 @@ function PickBusiness({ hasAny, onOpenMenu }: { hasAny: boolean; onOpenMenu: () 
       </div>
     </div>
   )
-}
-
-/** Closes a popover on outside click or Escape. */
-function useDismiss(open: boolean, ref: React.RefObject<HTMLElement | null>, close: () => void) {
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) close() }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
-  }, [open, ref, close])
 }
 
 const DESKTOP = '(min-width: 1024px)'
@@ -97,6 +87,7 @@ export default function AppLayout() {
   const accountRef = useRef<HTMLDivElement>(null)
   const moreRef = useRef<HTMLDivElement>(null)
   const burgerRef = useRef<HTMLButtonElement>(null)
+  const scroller = useRef<HTMLElement>(null)
   const loc = useLocation()
 
   const closeAccount = useCallback(() => setAccount(false), [])
@@ -104,6 +95,15 @@ export default function AppLayout() {
   useDismiss(account, accountRef, closeAccount)
   useDismiss(more, moreRef, closeMore)
   useEffect(() => { setAccount(false); setMore(false); setDrawer(false) }, [loc.pathname])
+  // The page scrolls inside <main> (so its scrollbar stays below the navbar). Each page starts at the top, and focus
+  // moves into the scrolling area unless it's already there, so Space / Page Down / arrow keys scroll the page.
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    el.scrollTo(0, 0)
+    window.scrollTo(0, 0) // phones scroll the window instead
+    if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
+  }, [loc.pathname, tenantId])
   // Leaving phone size with the drawer open (rotate, resize) would strand it: close it.
   useEffect(() => {
     const mq = window.matchMedia(DESKTOP)
@@ -125,36 +125,37 @@ export default function AppLayout() {
   const businessSwitch = (id: string) => isPlatform && (
     <div>
       <label className="label" htmlFor={id}>Business</label>
-      <select id={id} className="input" value={tenantId ?? ''} onChange={(e) => setTenantId(e.target.value)}>
-        {!tenantId && <option value="">Choose a business…</option>}
-        {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-      </select>
+      <Select id={id} value={tenantId ?? ''} onChange={setTenantId} placeholder="Choose a business…"
+        options={tenants.map((t) => ({ value: t.id, label: t.name }))} />
     </div>
   )
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-dvh lg:flex lg:h-dvh lg:flex-col">
+      {/* Desktop: only <main> scrolls, so its scrollbar starts below the navbar. Phones and tablets scroll the whole
+          page as usual (the navbar is sticky), which keeps native behaviour: the address bar collapses and tapping the
+          status bar scrolls to the top. */}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-xl focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:shadow">
         Skip to content
       </a>
-      <header className="glass sticky top-0 z-30 border-b border-black/[0.06] shadow-[0_1px_0_rgb(255_255_255/0.6)_inset]">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-5 lg:gap-6">
+      <header className="glass sticky top-0 z-30 shrink-0 border-b lg:relative border-black/[0.06] shadow-[0_1px_0_rgb(255_255_255/0.6)_inset]">
+        <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:gap-6 lg:px-8">
           <NavLink to="/" className="flex shrink-0 items-center gap-2 text-slate-900" aria-label="VoiceCare home">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-[#8e5cf7] text-white shadow-[0_4px_12px_-4px_rgb(0_113_227/0.6)]"><Logo /></span>
-            <span className="text-[15px] font-semibold tracking-tight">VoiceCare</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-brand-500 to-[#8e5cf7] text-white"><Logo /></span>
+            <span className="text-base font-bold tracking-tight">VoiceCare</span>
           </NavLink>
 
           {/* Desktop: main sections inline, the rest under More. */}
           <nav aria-label="Main" className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex">
             {primary.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end}
-                className={({ isActive: a }) => `whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] transition-colors duration-200 ${a ? 'bg-slate-900/[0.07] font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-900/[0.04] hover:text-slate-900'}`}>
+                className={({ isActive: a }) => `whitespace-nowrap rounded-full px-3.5 py-2 text-sm transition-colors duration-200 ${a ? 'bg-slate-900/[0.07] font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-900/[0.04] hover:text-slate-900'}`}>
                 {n.label}
               </NavLink>
             ))}
             <div ref={moreRef} className="relative">
               <button onClick={() => setMore((v) => !v)} aria-expanded={more} aria-haspopup="menu"
-                className={`flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] transition-colors duration-200 ${activeSecondary ? 'bg-slate-900/[0.07] font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-900/[0.04] hover:text-slate-900'}`}>
+                className={`flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-full px-3.5 py-2 text-sm transition-colors duration-200 ${activeSecondary ? 'bg-slate-900/[0.07] font-medium text-slate-900' : 'text-slate-600 hover:bg-slate-900/[0.04] hover:text-slate-900'}`}>
                 {activeSecondary?.label ?? 'More'}
                 <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 transition-transform ${more ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden><path d="m6 9 6 6 6-6" /></svg>
               </button>
@@ -176,15 +177,15 @@ export default function AppLayout() {
           {/* Account menu (desktop). */}
           <div ref={accountRef} className="relative hidden lg:block">
             <button onClick={() => setAccount((v) => !v)} aria-expanded={account} aria-haspopup="menu" aria-label="Account menu"
-              className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-[13px] text-slate-700 transition hover:bg-slate-900/[0.05]">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-xs font-semibold text-white">{initials}</span>
+              className="flex cursor-pointer items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm text-slate-700 transition hover:bg-slate-900/[0.05]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-500 text-sm font-semibold text-white">{initials}</span>
               <span className="max-w-40 truncate">{businessName}</span>
             </button>
             {account && (
               <div role="menu" className="glass animate-rise absolute right-0 mt-2 w-72 rounded-2xl p-2 shadow-[var(--shadow-float)] ring-1 ring-black/5" style={{ animationDuration: '0.35s' }}>
                 <div className="px-3 py-2">
                   <div className="truncate text-sm font-medium text-slate-900">{user?.email}</div>
-                  <div className="text-xs capitalize text-slate-500">{user?.role.replace('_', ' ')}</div>
+                  <div className="mt-0.5 text-xs capitalize text-slate-500">{user?.role.replace('_', ' ')}</div>
                 </div>
                 {isPlatform && <div className="px-3 pb-2">{businessSwitch('tenant-switch')}</div>}
                 <div className="my-1 h-px bg-black/5" />
@@ -196,7 +197,7 @@ export default function AppLayout() {
           </div>
 
           {/* Phones & tablets: business name + menu button. */}
-          <span className="min-w-0 max-w-[40vw] truncate text-[13px] text-slate-600 lg:hidden">{businessName}</span>
+          <span className="min-w-0 max-w-[40vw] truncate text-sm text-slate-600 lg:hidden">{businessName}</span>
           <button ref={burgerRef} onClick={() => setDrawer(true)} aria-label="Open menu" aria-expanded={drawer} aria-controls="mobile-nav"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-900/[0.05] lg:hidden">
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M4 7h16M4 12h16M4 17h16" /></svg>
@@ -221,7 +222,10 @@ export default function AppLayout() {
           <button onClick={logout} className="w-full rounded-xl px-3 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50">Sign out</button>
         </>} />
 
-      <main id="main" className="mx-auto max-w-6xl px-4 pb-24 pt-8 sm:px-5 sm:pt-12">
+      {/* Content is left-aligned on the same edge as the logo and fills the width. Only this area scrolls, so the
+          scrollbar starts below the navbar; the gutter is always reserved so pages don't shift sideways. */}
+      <main id="main" ref={scroller} tabIndex={-1}
+        className="px-4 pb-24 pt-6 outline-none sm:px-6 sm:pt-12 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-8 lg:[scrollbar-gutter:stable]">
         <div key={`${tenantId ?? 'none'}:${loc.pathname}`} className="animate-fade">
           {needsBusiness ? <PickBusiness hasAny={tenants.length > 0} onOpenMenu={openChooser} /> : <Outlet key={tenantId ?? 'none'} />}
         </div>
@@ -260,12 +264,12 @@ function MobileDrawer({ open, onClose, items, path, header, footer }: {
         <nav aria-label="Main" className="flex-1 overflow-y-auto overscroll-contain p-3">
           {groups.map(([g, list]) => !!list.length && (
             <div key={g} className="mb-3">
-              <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{g}</div>
+              <div className="section-label px-3 pb-1 pt-2">{g}</div>
               {list.map((n) => {
                 const active = isActive(n, path)
                 return (
                   <NavLink key={n.to} to={n.to} end={n.end} tabIndex={open ? 0 : -1} aria-current={active ? 'page' : undefined}
-                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] transition ${active ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-700 hover:bg-slate-900/[0.04]'}`}>
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-base transition ${active ? 'bg-brand-50 font-medium text-brand-700' : 'text-slate-700 hover:bg-slate-900/[0.04]'}`}>
                     <span className={active ? 'text-brand-600' : 'text-slate-500'}>{n.icon}</span>{n.label}
                   </NavLink>
                 )

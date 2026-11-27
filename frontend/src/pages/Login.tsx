@@ -22,7 +22,7 @@ export default function Login() {
       <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[60rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-100 via-violet-100 to-sky-100 opacity-70 blur-3xl" />
       <form onSubmit={submit} className="animate-rise relative w-full max-w-sm">
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-[#8e5cf7] text-white shadow-[0_14px_30px_-10px_rgb(0_113_227/0.7)]">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-[#8e5cf7] text-white">
             <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden="true">
               <rect x="3" y="9" width="2.6" height="6" rx="1.3" fill="currentColor" />
               <rect x="7.6" y="5" width="2.6" height="14" rx="1.3" fill="currentColor" />
@@ -30,16 +30,16 @@ export default function Login() {
               <rect x="16.8" y="3.5" width="2.6" height="17" rx="1.3" fill="currentColor" />
             </svg>
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-slate-900">Sign in to <span className="text-gradient">VoiceCare</span>.</h1>
-          <p className="mt-3 text-[17px] text-slate-500">Your AI customer-care agents, in one place.</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Sign in to <span className="text-gradient">VoiceCare</span></h1>
+          <p className="mt-3 text-base text-slate-500">Your AI customer-care agents, in one place.</p>
         </div>
-        {error && <div className="mb-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+        {error && <div role="alert" className="note note-red mb-4">{error}</div>}
         <div className="space-y-3">
-          <input className="input py-3.5 text-[15px]" placeholder="Email" aria-label="Email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input className="input py-3.5 text-[15px]" type="password" placeholder="Password" aria-label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input className="input h-12 text-base" placeholder="Email"aria-label="Email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input h-12 text-base" type="password" placeholder="Password" aria-label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        <button className="btn mt-6 w-full py-3 text-[15px] shadow-[0_10px_24px_-10px_rgb(0_113_227/0.8)]" disabled={busy || !email || !password}>{busy ? 'Signing in…' : 'Continue'}</button>
-        <p className="mt-6 text-center text-xs text-slate-400">Development accounts are listed in <code>.env.example</code>.</p>
+        <button className="btn mt-6 h-12 w-full text-base" disabled={busy || !email || !password}>{busy ? 'Signing in…' : 'Continue'}</button>
+        <p className="mt-6 text-center text-sm text-slate-500">Development accounts are listed in <code>.env.example</code>.</p>
       </form>
     </div>
   )

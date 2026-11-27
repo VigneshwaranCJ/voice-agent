@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { DateRangePicker } from '../components/DatePicker'
+import { Select } from '../components/Select'
 import { useToast } from '../components/Toast'
 import { downloadCsv } from '../services/csv'
+import { todayKey } from '../services/dates'
 import { Badge, Empty, ErrorNote, Icons, PageHeader, fmtDate, statusTone } from '../components/ui'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
@@ -10,6 +13,10 @@ import { LANGUAGES, type Conversation, type Message } from '../types'
 
 const PAGE = 100
 const STATUSES = ['all', 'completed', 'escalated', 'abandoned', 'active'] as const
+const CHANNELS = [
+  { value: '', label: 'All channels' }, { value: 'sarvam_voice', label: 'Sarvam voice' }, { value: 'web_text', label: 'Web text' },
+  { value: 'widget', label: 'Website widget' }, { value: 'phone', label: 'Phone' },
+]
 
 export function Calls() {
   const { tenantId } = useAuth()
@@ -59,56 +66,57 @@ export function Calls() {
       <ErrorNote error={error} />
       {!!escalations?.length && (
         <div className="card mb-6 overflow-hidden bg-gradient-to-br from-rose-50/70 to-white p-0">
-          <div className="flex items-center gap-3 px-6 pb-2 pt-5">
-            <span className="icon-tile h-8 w-8 rounded-xl bg-gradient-to-br from-[#fb7185] to-[#e11d48] text-[#e11d48]"><span className="text-white">{Icons.alert}</span></span>
-            <div>
-              <div className="text-[15px] font-semibold text-slate-900">Open escalations</div>
-              <div className="text-xs text-slate-500">{escalations.length} waiting for a human</div>
+          <div className="flex flex-wrap items-center gap-3 px-5 pb-2 pt-5 sm:px-6">
+            <span className="icon-tile bg-gradient-to-br from-[#fb7185] to-[#e11d48] text-[#e11d48]"><span className="text-white">{Icons.alert}</span></span>
+            <div className="min-w-0 flex-1 basis-40">
+              <div className="card-title">Open escalations</div>
+              <div className="text-sm text-slate-500">{escalations.length} waiting for a human</div>
             </div>
-            <Link to="/follow-ups?tab=escalations" className="btn-ghost ml-auto">Assign & resolve</Link>
+            <Link to="/follow-ups?tab=escalations" className="btn-ghost btn-sm">Assign & resolve</Link>
           </div>
           <div className="px-3 pb-3">
             {escalations.map((e) => (
-              <Link key={e.id} to={`/calls/${e.conversation_id}`} className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition hover:bg-white">
+              <Link key={e.id} to={`/calls/${e.conversation_id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl px-2 py-2.5 text-sm transition hover:bg-white sm:flex-nowrap sm:px-3">
                 <Badge tone={e.priority === 'critical' ? 'red' : 'amber'}>{e.priority}</Badge>
-                <span className="font-medium capitalize text-slate-900">{e.reason.replace('_', ' ')}</span>
-                <span className="min-w-0 flex-1 truncate text-slate-500">{e.summary}</span>
-                <span className="whitespace-nowrap text-xs text-slate-400">{fmtDate(e.at)}</span>
+                <span className="whitespace-nowrap font-medium capitalize text-slate-900">{e.reason.replace(/_/g, ' ')}</span>
+                {/* phones: summary on its own line under the badge and reason; wider: inline, truncated */}
+                <span className="order-last min-w-0 basis-full truncate text-slate-500 sm:order-none sm:flex-1 sm:basis-auto">{e.summary}</span>
+                <span className="ml-auto whitespace-nowrap text-xs text-slate-500">{fmtDate(e.at)}</span>
               </Link>
             ))}
           </div>
         </div>
       )}
+      {/* One filter row; on narrower screens it wraps and the search box fills its line. */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {STATUSES.map((st) => (
-          <button key={st} onClick={() => setStatus(st)}
-            className={`rounded-full px-3 py-1 text-sm capitalize ring-1 ring-inset transition ${status === st ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-600 ring-slate-200 hover:ring-slate-300'}`}>{st}</button>
-        ))}
-        <select aria-label="Channel" className="input w-auto py-1.5" value={channel} onChange={(e) => setChannel(e.target.value)}>
-          <option value="">All channels</option><option value="sarvam_voice">Sarvam voice</option><option value="web_text">Web text</option><option value="widget">Website widget</option><option value="phone">Phone</option>
-        </select>
-        <label className="flex items-center gap-1 text-sm text-slate-500">From <input type="date" aria-label="From date" className="input w-auto py-1.5" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label className="flex items-center gap-1 text-sm text-slate-500">To <input type="date" aria-label="To date" className="input w-auto py-1.5" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></label>
-        <input aria-label="Search calls" className="input ml-auto w-60 py-1.5" placeholder="Search summaries & transcripts…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className="btn-ghost" onClick={exportCsv} disabled={!data?.length}>Export CSV</button>
+        <div role="group" aria-label="Status" className="flex flex-wrap items-center gap-1.5">
+          {STATUSES.map((st) => (
+            <button key={st} onClick={() => setStatus(st)} aria-pressed={status === st} className="chip px-3">{st}</button>
+          ))}
+        </div>
+        <Select label="Channel" size="sm" className="w-auto min-w-36" value={channel} onChange={setChannel} options={CHANNELS} />
+        <DateRangePicker size="sm" label="Call dates" value={{ from, to }} max={todayKey()}
+          onChange={(r) => { setFrom(r.from); setTo(r.to) }} />
+        <input aria-label="Search calls" type="search" className="input input-sm min-w-36 flex-1" placeholder="Search transcripts…" title="Searches call summaries and transcripts" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button className="btn-ghost btn-sm" onClick={exportCsv} disabled={!data?.length}>Export CSV</button>
       </div>
-      <div className="card overflow-x-auto px-3 py-2">
-        {!data ? <div className="p-6 text-sm text-slate-400">Loading…</div> : data.length ? (
-          <table className="table">
+      <div className="card card-table">
+        {!data ? <div className="p-6 text-sm text-slate-500">Loading…</div> : data.length ? (
+          <table className="table table-stack">
             <thead><tr><th>Started</th><th>Channel</th><th>Status</th><th>Languages</th><th>Intents</th><th>Summary</th></tr></thead>
             <tbody>{data.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-50">
-                <td className="whitespace-nowrap"><Link className="font-medium text-slate-900 hover:text-brand-500" to={`/calls/${c.id}`}>{fmtDate(c.created_at)}</Link></td>
-                <td className="whitespace-nowrap capitalize text-slate-600">{c.channel.replace('_', ' ')}</td>
-                <td><Badge tone={statusTone(c.status)}>{c.status}</Badge></td>
-                <td>{c.languages_used.map((l) => LANGUAGES[l] ?? l).join(', ')}</td>
-                <td><div className="flex flex-wrap gap-1">{c.intents.map((t) => <code key={t} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">{t}</code>)}</div></td>
-                <td className="max-w-md text-xs text-slate-600">{c.summary ?? '—'}</td>
+              <tr key={c.id}>
+                <td data-label="Started" className="whitespace-nowrap"><Link className="font-medium text-slate-900 hover:text-brand-500" to={`/calls/${c.id}`}>{fmtDate(c.created_at)}</Link></td>
+                <td data-label="Channel" className="whitespace-nowrap text-slate-600"><span className="capitalize">{c.channel.replace('_', ' ')}</span></td>
+                <td data-label="Status"><Badge tone={statusTone(c.status)}>{c.status}</Badge></td>
+                <td data-label="Languages">{c.languages_used.map((l) => LANGUAGES[l] ?? l).join(', ')}</td>
+                <td data-label="Intents"><div className="flex flex-wrap gap-1">{c.intents.map((t) => <code key={t} className="whitespace-nowrap rounded-md bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{t}</code>)}</div></td>
+                <td data-label="Summary" className="max-w-md text-slate-600">{c.summary ?? '—'}</td>
               </tr>
             ))}</tbody>
           </table>
         ) : <div className="p-3"><Empty icon={Icons.chat}>{filtered ? 'No calls match these filters.' : 'No conversations yet. Start one from the Voice page.'}</Empty></div>}
-        {more && <div className="p-3 text-center"><button className="btn-ghost" onClick={() => load(data?.length ?? 0)}>Load more</button></div>}
+        {more && <div className="p-3 text-center"><button className="btn-ghost btn-sm" onClick={() => load(data?.length ?? 0)}>Load more</button></div>}
       </div>
     </div>
   )
@@ -141,41 +149,41 @@ export function CallDetail() {
     <div>
       <PageHeader eyebrow="Transcript" title="Conversation" subtitle={`${fmtDate(c.created_at)} · ${c.channel.replace('_', ' ')}`}
         actions={<div className="flex gap-2">
-          {c.channel === 'sarvam_voice' && <button className="btn-ghost" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh transcript'}</button>}
-          <Link to="/calls" className="btn-ghost">← All calls</Link>
+          {c.channel === 'sarvam_voice' && <button className="btn-ghost btn-sm" disabled={refreshing} onClick={refresh}>{refreshing ? 'Refreshing…' : 'Refresh transcript'}</button>}
+          <Link to="/calls" className="btn-ghost btn-sm">← All calls</Link>
         </div>} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_22rem]">
         <div className="card space-y-3">
           {data.messages.map((m) => (
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : ''}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${m.role === 'user' ? 'bg-brand-600 text-white' : 'bg-slate-100'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === 'user' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-800'}`}>
                 {m.content}
-                <div className="mt-1 text-[10px] opacity-70">{m.language && (LANGUAGES[m.language] ?? m.language)} {m.interrupted && '· interrupted'}</div>
+                <div className="mt-1 text-xs opacity-70">{m.language && (LANGUAGES[m.language] ?? m.language)} {m.interrupted && '· interrupted'}</div>
               </div>
             </div>
           ))}
         </div>
         <div className="space-y-4">
           <div className="card text-sm">
-            <div className="mb-2 font-semibold">Summary</div>
-            <p className="text-slate-600">{c.summary ?? 'Not available (call in progress or summary failed).'}</p>
+            <h2 className="card-title mb-2">Summary</h2>
+            <p className="leading-relaxed text-slate-600">{c.summary ?? 'Not available (call in progress or summary failed).'}</p>
             <div className="mt-3 flex flex-wrap gap-2"><Badge tone={statusTone(c.status)}>{c.status}</Badge>
               {data.call?.duration_seconds != null && <Badge>{Math.round(data.call.duration_seconds)}s</Badge>}
               {data.call?.end_reason && <Badge>{data.call.end_reason}</Badge>}</div>
           </div>
           {!!data.escalations.length && (
-            <div className="card text-sm"><div className="mb-2 font-semibold text-rose-700">Escalations</div>
-              {data.escalations.map((e) => <div key={e.id} className="mb-2"><Badge tone="red">{e.priority}</Badge> {e.reason} — <span className="text-slate-500">{e.summary}</span></div>)}
+            <div className="card text-sm"><h2 className="card-title mb-3 text-rose-700">Escalations</h2>
+              {data.escalations.map((e) => <div key={e.id} className="mb-2 leading-relaxed"><Badge tone="red">{e.priority}</Badge> <span className="capitalize">{e.reason.replace(/_/g, ' ')}</span> — <span className="text-slate-500">{e.summary}</span></div>)}
             </div>
           )}
           <div className="card text-sm">
-            <div className="mb-2 font-semibold">Tool executions</div>
+            <h2 className="card-title mb-3">Tool executions</h2>
             {data.tool_executions.length ? data.tool_executions.map((t, i) => (
-              <details key={i} className="mb-2 rounded border border-slate-100 p-2">
-                <summary className="cursor-pointer"><span className="font-mono text-xs">{t.tool}</span> <Badge tone={t.status === 'success' ? 'green' : 'amber'}>{t.status}</Badge> <span className="text-xs text-slate-400">{t.duration_ms}ms</span></summary>
-                <pre className="mt-2 overflow-x-auto text-[11px] text-slate-600">{JSON.stringify({ arguments: t.arguments, result: t.result, error: t.error }, null, 2)}</pre>
+              <details key={i} className="mb-2 rounded-xl border border-slate-200 px-3 py-2.5">
+                <summary className="flex cursor-pointer flex-wrap items-center gap-2"><span className="font-mono text-[13px] font-medium text-slate-900">{t.tool}</span> <Badge tone={t.status === 'success' ? 'green' : 'amber'}>{t.status}</Badge> <span className="ml-auto text-xs text-slate-500 tabular-nums">{t.duration_ms}ms</span></summary>
+                <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-50 p-2.5 font-mono text-xs leading-relaxed text-slate-600">{JSON.stringify({ arguments: t.arguments, result: t.result, error: t.error }, null, 2)}</pre>
               </details>
-            )) : <div className="text-slate-400">None</div>}
+            )) : <div className="text-slate-500">None</div>}
           </div>
         </div>
       </div>

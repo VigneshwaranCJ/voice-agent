@@ -17,7 +17,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={show}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-2">
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-stretch gap-2 pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:bottom-6 sm:right-6 sm:items-end">
         {toasts.map((t) => (
           <div key={t.id} role="status"
             className={`animate-rise pointer-events-auto flex max-w-sm items-center gap-2 rounded-2xl px-4 py-3 text-sm shadow-[var(--shadow-float)] ring-1 ${

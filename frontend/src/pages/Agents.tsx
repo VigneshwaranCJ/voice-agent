@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import SarvamLink from '../components/SarvamLink'
+import { Select } from '../components/Select'
 import TestChat from '../components/TestChat'
 import { useToast } from '../components/Toast'
-import { Badge, Empty, ErrorNote, PageHeader, fmtDate } from '../components/ui'
+import { Badge, Empty, ErrorNote, PageHeader, SuccessNote, fmtDate } from '../components/ui'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../services/api'
@@ -37,18 +38,23 @@ export default function Agents() {
         actions={!creating ? newButton : undefined} />
       <ErrorNote error={error} />
       {creating && <NewAgentForm onCreated={created} onCancel={() => setCreating(false)} />}
-      <div className={`grid grid-cols-1 gap-6 lg:grid-cols-[16rem_1fr] ${creating ? 'hidden' : ''}`}>
-        <div className="space-y-2">
-          {agents?.map((a) => (
-            <button key={a.id} onClick={() => setSelected(a.id)}
-              className={`card card-hover w-full p-4 text-left ${selected === a.id ? 'ring-2 ring-brand-500' : ''}`}>
-              <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-[#8e5cf7] text-sm font-semibold text-white">{a.name.slice(0, 1)}</span>
-                <div className="min-w-0 font-medium text-slate-900">{a.name}</div>
-              </div>
-              <div className="mt-2 flex gap-1 pl-12"><Badge tone="blue">{a.industry.replace('_', ' ')}</Badge>{!a.is_active && <Badge tone="red">inactive</Badge>}</div>
-            </button>
-          ))}
+      <div className={creating ? 'hidden' : ''}>
+        {/* Agent picker: a row above the editor, so the editor gets the full width. Scrolls sideways when there are many. */}
+        <div role="group" aria-label="Choose an agent" className="-mx-1 mb-5 flex gap-3 overflow-x-auto px-1 pb-2 pt-1">
+          {agents?.map((a) => {
+            const on = selected === a.id
+            return (
+              <button key={a.id} onClick={() => setSelected(a.id)} aria-pressed={on}
+                className={`flex shrink-0 cursor-pointer items-center gap-3 rounded-2xl bg-white py-2.5 pl-2.5 pr-5 text-left shadow-[var(--shadow-card)] transition ${
+                  on ? 'ring-2 ring-brand-500' : 'ring-1 ring-black/5 hover:ring-slate-300'}`}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-[#8e5cf7] text-sm font-semibold text-white">{a.name.slice(0, 1)}</span>
+                <span className="min-w-0">
+                  <span className="block max-w-64 truncate text-sm font-semibold text-slate-900">{a.name}</span>
+                  <span className="mt-1 flex gap-1.5"><Badge tone="blue">{a.industry.replace('_', ' ')}</Badge>{!a.is_active && <Badge tone="red">inactive</Badge>}</span>
+                </span>
+              </button>
+            )
+          })}
         </div>
         {selected && <AgentEditor key={selected} id={selected} onSaved={reload} />}
       </div>
@@ -96,32 +102,35 @@ function AgentEditor({ id, onSaved }: { id: string; onSaved: () => void }) {
   return (
     <div className="space-y-4">
       <ErrorNote error={err} />
-      {msg && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{msg}</div>}
-      <div className="card grid grid-cols-1 gap-4 md:grid-cols-2">
+      <SuccessNote>{msg}</SuccessNote>
+      <div className="card grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="md:col-span-2"><h2 className="card-title">Agent details</h2></div>
         <div><label className="label">Agent name</label><input className="input" value={agent.name} onChange={(e) => setData({ ...agent, name: e.target.value })} /></div>
         <div><label className="label">Persona name (how the agent introduces itself)</label><input className="input" value={cfg.persona_name} onChange={(e) => setCfg({ ...cfg, persona_name: e.target.value })} /></div>
-        <div className="md:col-span-2"><label className="label">Personality</label><textarea className="input h-20" value={cfg.personality} onChange={(e) => setCfg({ ...cfg, personality: e.target.value })} /></div>
+        <div className="md:col-span-2"><label className="label">Personality</label><textarea className="input h-24" value={cfg.personality} onChange={(e) => setCfg({ ...cfg, personality: e.target.value })} /></div>
         <div className="md:col-span-2"><label className="label">Business-specific instructions (added to industry defaults)</label>
-          <textarea className="input h-28 font-mono text-xs" placeholder="e.g. Always mention free pickup for site visits. Never quote prices for Phase 2 units." value={cfg.system_instructions} onChange={(e) => setCfg({ ...cfg, system_instructions: e.target.value })} /></div>
-        <div>
-          <label className="label">Languages</label>
+          <textarea className="input h-32 font-mono text-[13px]" placeholder="e.g. Always mention free pickup for site visits. Never quote prices for Phase 2 units." value={cfg.system_instructions} onChange={(e) => setCfg({ ...cfg, system_instructions: e.target.value })} /></div>
+        <div className="md:col-span-2">
+          <span className="label">Languages</span>
           <div className="flex flex-wrap gap-2">
             {Object.entries(LANGUAGES).map(([code, name]) => (
-              <label key={code} className="flex items-center gap-1 text-sm"><input type="checkbox" checked={agent.languages.includes(code)} onChange={() => toggleLang(code)} />{name}</label>
+              <label key={code} className="check-pill"><input type="checkbox" checked={agent.languages.includes(code)} onChange={() => toggleLang(code)} />{name}</label>
             ))}
           </div>
         </div>
-        <div><label className="label">Default language</label>
-          <select className="input" value={agent.default_language} onChange={(e) => setData({ ...agent, default_language: e.target.value })}>
-            {agent.languages.map((l) => <option key={l} value={l}>{LANGUAGES[l] ?? l}</option>)}
-          </select></div>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={agent.public_widget_enabled} onChange={(e) => setData({ ...agent, public_widget_enabled: e.target.checked })} />Allow public website widget</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={agent.is_active} onChange={(e) => setData({ ...agent, is_active: e.target.checked })} />Active</label>
+        <div><label className="label" htmlFor="ag-default">Default language</label>
+          <Select id="ag-default" value={agent.default_language} onChange={(default_language) => setData({ ...agent, default_language })}
+            options={agent.languages.map((l) => ({ value: l, label: LANGUAGES[l] ?? l }))} /></div>
+        <div className="flex flex-col justify-end gap-3 pb-1">
+          <label className="check-row"><input type="checkbox" checked={agent.public_widget_enabled} onChange={(e) => setData({ ...agent, public_widget_enabled: e.target.checked })} />Allow public website widget</label>
+          <label className="check-row"><input type="checkbox" checked={agent.is_active} onChange={(e) => setData({ ...agent, is_active: e.target.checked })} />Active</label>
+        </div>
       </div>
 
       <div className="card">
-        <div className="mb-3 text-sm font-semibold">Greeting</div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <h2 className="card-title">Greeting</h2>
+        <p className="card-desc mb-4">What the agent says first, per language. Leave empty for the default.</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {agent.languages.map((l) => (
             <div key={l}><label className="label">{LANGUAGES[l] ?? l}</label>
               <input className="input" placeholder="Default greeting" value={cfg.greeting[l] ?? ''} onChange={(e) => setCfg({ ...cfg, greeting: { ...cfg.greeting, [l]: e.target.value } })} /></div>
@@ -130,19 +139,30 @@ function AgentEditor({ id, onSaved }: { id: string; onSaved: () => void }) {
       </div>
 
       <div className="card">
-        <div className="mb-3 text-sm font-semibold">Tools</div>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="card-title">Tools</h2>
+            <p className="card-desc">What the agent may look up or do during a conversation.</p>
+          </div>
+          <span className="text-sm text-slate-500 tabular-nums">{tools.filter((t) => cfg.enabled_tools.includes(t.name)).length} of {tools.length} on</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
           {tools.map((t) => (
-            <label key={t.name} className="flex items-start gap-2 rounded-lg border border-slate-100 p-2 text-sm">
-              <input type="checkbox" className="mt-1" checked={cfg.enabled_tools.includes(t.name)}
+            <label key={t.name} className="check-card">
+              <input type="checkbox" className="mt-px" checked={cfg.enabled_tools.includes(t.name)}
                 onChange={(e) => setCfg({ ...cfg, enabled_tools: e.target.checked ? [...cfg.enabled_tools, t.name] : cfg.enabled_tools.filter((n) => n !== t.name) })} />
-              <span><span className="font-mono text-xs font-medium">{t.name}</span>{t.requires_confirmation && <Badge tone="amber">confirms</Badge>}
-                <span className="block text-xs text-slate-500">{t.description}</span></span>
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[13px] font-medium text-slate-900">{t.name}</span>
+                  {t.requires_confirmation && <Badge tone="amber">confirms</Badge>}
+                </span>
+                <span className="mt-1 block text-sm leading-snug text-slate-500">{t.description}</span>
+              </span>
             </label>
           ))}
         </div>
       </div>
-      <button className="btn" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>
+      <div className="flex justify-end"><button className="btn" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button></div>
       <TestChat key={`${agent.id}:${cfg.version ?? ''}`} agentId={agent.id} languages={agent.languages} />
       <WidgetEmbed agentId={agent.id} enabled={agent.public_widget_enabled} />
       <SarvamLink agentId={agent.id} enabledTools={cfg.enabled_tools} catalog={catalog} />
@@ -189,31 +209,27 @@ function NewAgentForm({ onCreated, onCancel }: { onCreated: (a: Agent) => void; 
   }
 
   return (
-    <form onSubmit={submit} className="card mb-6 space-y-4">
-      <div className="text-sm font-semibold">New agent</div>
+    <form onSubmit={submit} className="card mb-6 space-y-5">
+      <h2 className="card-title">New agent</h2>
       <ErrorNote error={err} />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div><label className="label" htmlFor="na-name">Agent name</label>
           <input id="na-name" className="input" required maxLength={200} placeholder="e.g. Front desk" value={name} onChange={(e) => setName(e.target.value)} autoFocus /></div>
         <div><label className="label" htmlFor="na-persona">Persona name (how the agent introduces itself)</label>
           <input id="na-persona" className="input" maxLength={100} value={persona} onChange={(e) => setPersona(e.target.value)} /></div>
         <div><label className="label" htmlFor="na-industry">Industry</label>
-          <select id="na-industry" className="input" value={chosenIndustry} onChange={(e) => setIndustry(e.target.value)}>
-            {available.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
-          </select>
-          <p className="mt-1 text-xs text-slate-500">Sets the agent's tools and built-in instructions.</p></div>
+          <Select id="na-industry" value={chosenIndustry} onChange={setIndustry} options={available.map((i) => ({ value: i.key, label: i.label }))} />
+          <p className="hint">Sets the agent's tools and built-in instructions.</p></div>
         <div><label className="label" htmlFor="na-default">Default language</label>
-          <select id="na-default" className="input" value={defaultLanguage} onChange={(e) => setDefaultLanguage(e.target.value)}>
-            {languages.map((l) => <option key={l} value={l}>{LANGUAGES[l] ?? l}</option>)}
-          </select></div>
+          <Select id="na-default" value={defaultLanguage} onChange={setDefaultLanguage} options={languages.map((l) => ({ value: l, label: LANGUAGES[l] ?? l }))} /></div>
         <div className="md:col-span-2"><span className="label">Languages</span>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {Object.entries(LANGUAGES).map(([code, label]) => (
-              <label key={code} className="flex items-center gap-1 text-sm"><input type="checkbox" checked={languages.includes(code)} onChange={() => toggleLang(code)} />{label}</label>
+              <label key={code} className="check-pill"><input type="checkbox" checked={languages.includes(code)} onChange={() => toggleLang(code)} />{label}</label>
             ))}
           </div></div>
       </div>
-      <p className="text-xs text-slate-500">After creating, you can set its personality, greetings, voice and tools here.</p>
+      <p className="text-sm text-slate-500">After creating, you can set its personality, greetings, voice and tools here.</p>
       <div className="flex gap-2">
         <button type="submit" className="btn" disabled={busy || !name.trim()}>{busy ? 'Creating…' : 'Create agent'}</button>
         <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
@@ -244,23 +260,24 @@ function ConfigHistory({ agentId, current, onRestored }: { agentId: string; curr
   }
   return (
     <div className="card">
-      <button className="flex w-full items-center justify-between text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <span><span className="text-sm font-semibold">Version history</span>
-          <span className="ml-2 text-xs text-slate-500">{versions ? `${versions.length} version${versions.length === 1 ? '' : 's'}` : ''}</span></span>
-        <span className="text-xs text-slate-500">{open ? 'Hide' : 'Show'}</span>
+      <button className="flex w-full cursor-pointer items-center justify-between text-left" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span><span className="card-title">Version history</span>
+          <span className="ml-2 text-sm text-slate-500">{versions ? `${versions.length} version${versions.length === 1 ? '' : 's'}` : ''}</span></span>
+        <span className="flex items-center gap-1 text-sm font-medium text-brand-600">{open ? 'Hide' : 'Show'}
+          <svg viewBox="0 0 24 24" className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m6 9 6 6 6-6" /></svg></span>
       </button>
       {open && (
-        <div className="mt-3 divide-y divide-slate-100">
+        <div className="mt-4 divide-y divide-slate-100">
           {versions?.map((v) => (
-            <div key={v.id} className="flex flex-wrap items-center gap-3 py-2.5 text-sm">
+            <div key={v.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
               <span className="font-medium text-slate-900">v{v.version}</span>
               {v.version === current && <Badge tone="green">current</Badge>}
               <span className="text-slate-500">{fmtDate(v.created_at)}</span>
-              <span className="min-w-0 flex-1 truncate text-xs text-slate-400">
+              <span className="min-w-0 flex-1 truncate text-slate-500">
                 {v.persona_name} · {v.enabled_tools.length} tools{v.system_instructions ? ` · ${v.system_instructions.slice(0, 60)}` : ''}
               </span>
               {v.version !== current && (
-                <button className="btn-ghost" disabled={busy !== null} onClick={() => restore(v)}>{busy === v.version ? 'Restoring…' : 'Restore'}</button>
+                <button className="btn-ghost btn-sm" disabled={busy !== null} onClick={() => restore(v)}>{busy === v.version ? 'Restoring…' : 'Restore'}</button>
               )}
             </div>
           ))}
@@ -280,18 +297,18 @@ function WidgetEmbed({ agentId, enabled }: { agentId: string; enabled: boolean }
   }
   return (
     <div className="card">
-      <div className="mb-1 text-sm font-semibold">Website widget</div>
-      <p className="mb-3 text-xs text-slate-500">
+      <h2 className="card-title">Website widget</h2>
+      <p className="card-desc mb-4">
         Paste this just before <code>&lt;/body&gt;</code> on your website. Visitors get a chat button that talks to this agent.
         Optional: <code>data-color="#0071e3"</code>, <code>data-title="Chat with us"</code>, <code>data-position="left"</code>.
       </p>
       {!enabled && (
-        <div className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+        <div className="note note-amber mb-4">
           The widget is off for this agent. Tick “Allow public website widget” above and save to turn it on.
         </div>
       )}
-      <pre className="overflow-x-auto rounded-xl bg-slate-900 p-3 text-xs text-slate-100"><code>{snippet}</code></pre>
-      <div className="mt-3 flex gap-2">
+      <pre className="overflow-x-auto rounded-xl bg-slate-900 p-4 font-mono text-[13px] leading-relaxed text-slate-100"><code>{snippet}</code></pre>
+      <div className="mt-4 flex gap-2">
         <button className="btn" onClick={copy}>Copy code</button>
         <a className="btn-ghost" href={`/widget-demo.html?agent=${encodeURIComponent(agentId)}`} target="_blank" rel="noreferrer">Preview</a>
       </div>

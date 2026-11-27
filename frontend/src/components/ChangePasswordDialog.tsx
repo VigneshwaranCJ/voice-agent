@@ -66,7 +66,7 @@ export default function ChangePasswordDialog({ onClose }: { onClose: () => void 
               <label className="label" htmlFor="pw-new">New password</label>
               <input id="pw-new" type="password" className="input" autoComplete="new-password" minLength={MIN_LENGTH}
                 value={next} onChange={(e) => setNext(e.target.value)} required />
-              <p className="mt-1 text-xs text-slate-500">At least {MIN_LENGTH} characters.</p>
+              <p className="hint">At least {MIN_LENGTH} characters.</p>
             </div>
             <div>
               <label className="label" htmlFor="pw-confirm">Confirm new password</label>

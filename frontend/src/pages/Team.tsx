@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Badge, Empty, ErrorNote, PageHeader, fmtDate } from '../components/ui'
+import { Select } from '../components/Select'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../services/api'
@@ -46,13 +47,12 @@ export default function Team() {
   }
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <PageHeader eyebrow="Settings" title="Team" subtitle={`People who can sign in to ${scopeLabel}. Admins manage agents and the team; staff see calls and follow up on leads.`}
         actions={isPlatform && tenantId ? (
-          <div className="flex rounded-full bg-slate-900/[0.05] p-1 text-sm">
+          <div className="seg">
             {[false, true].map((p) => (
-              <button key={String(p)} onClick={() => setPlatformScope(p)}
-                className={`rounded-full px-4 py-1.5 transition ${platformScope === p ? 'bg-white font-medium text-slate-900 shadow-sm' : 'text-slate-600'}`}>
+              <button key={String(p)} aria-pressed={platformScope === p} onClick={() => setPlatformScope(p)} className="normal-case">
                 {p ? 'Platform admins' : businessName}
               </button>
             ))}
@@ -60,9 +60,9 @@ export default function Team() {
         ) : undefined} />
       <ErrorNote error={error} />
       {isAdmin && <AddMember key={platformScope ? 'platform' : 'business'} roles={roles} onAdd={(body) => call('/users', { method: 'POST', json: body }, `${body.email} added`)} />}
-      <div className="card overflow-x-auto px-3 py-2">
-        {!members ? <div className="p-6 text-sm text-slate-400">Loading…</div> : members.length ? (
-          <table className="table">
+      <div className="card card-table">
+        {!members ? <div className="p-6 text-sm text-slate-500">Loading…</div> : members.length ? (
+          <table className="table table-stack">
             <thead><tr><th>Person</th><th>Role</th><th>Status</th><th>Last sign-in</th>{isAdmin && <th />}</tr></thead>
             <tbody>{members.map((m) => (
               <MemberRow key={m.id} m={m} isSelf={m.id === user?.id} isAdmin={isAdmin} roles={roles}
@@ -94,9 +94,9 @@ function EmailAlerts() {
     <div className="card mt-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-sm font-semibold">Email alerts
-            <Badge tone={status.configured ? 'green' : 'gray'}>{status.configured ? 'on' : 'not set up'}</Badge></div>
-          <p className="mt-1 max-w-xl text-sm text-slate-500">
+          <h2 className="card-title flex items-center gap-2">Email alerts
+            <Badge tone={status.configured ? 'green' : 'gray'}>{status.configured ? 'on' : 'not set up'}</Badge></h2>
+          <p className="card-desc max-w-xl">
             {status.configured
               ? <>Admins get an email when the agent captures a lead or hands a call to a person.{' '}
                   {status.recipients.length ? <>Sent to: {status.recipients.join(', ')}.</> : 'No active admins to email yet.'}</>
@@ -124,23 +124,21 @@ function AddMember({ roles, onAdd }: { roles: Member['role'][]; onAdd: (b: { ema
     setBusy(false)
   }
   return (
-    <form onSubmit={submit} className="card mb-6 space-y-4">
-      <div className="text-sm font-semibold">Add a person</div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <form onSubmit={submit} className="card mb-6 space-y-5">
+      <h2 className="card-title">Add a person</h2>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div><label className="label" htmlFor="tm-email">Email</label>
           <input id="tm-email" type="email" required className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div><label className="label" htmlFor="tm-name">Name</label>
           <input id="tm-name" className="input" maxLength={200} value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div><label className="label" htmlFor="tm-role">Role</label>
-          <select id="tm-role" className="input" value={role} onChange={(e) => setRole(e.target.value)}>
-            {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-          </select></div>
+          <Select id="tm-role" value={role} onChange={setRole} options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} /></div>
         <div><label className="label" htmlFor="tm-pw">Temporary password</label>
           <div className="flex gap-2">
             <input id="tm-pw" className="input font-mono" required minLength={MIN_PASSWORD} value={password} onChange={(e) => setPassword(e.target.value)} />
             <button type="button" className="btn-ghost whitespace-nowrap" onClick={() => setPassword(generatePassword())}>New</button>
           </div>
-          <p className="mt-1 text-xs text-slate-500">Share it privately. They can change it from the account menu after signing in.</p></div>
+          <p className="hint">Share it privately. They can change it from the account menu after signing in.</p></div>
       </div>
       <button className="btn" disabled={busy || !email.trim() || password.length < MIN_PASSWORD}>{busy ? 'Adding…' : 'Add person'}</button>
     </form>
@@ -155,20 +153,19 @@ function MemberRow({ m, isSelf, isAdmin, roles, onRole, onActive, onReset }: {
   return (
     <>
       <tr className={m.is_active ? '' : 'opacity-60'}>
-        <td><div className="font-medium text-slate-900">{m.full_name || m.email}{isSelf && <span className="ml-2 text-xs text-slate-400">(you)</span>}</div>
-          {m.full_name && <div className="text-xs text-slate-500">{m.email}</div>}</td>
-        <td>{isAdmin && !isSelf && roles.length > 1 ? (
-          <select aria-label={`Role for ${m.email}`} className="input py-1.5" value={m.role} onChange={(e) => onRole(e.target.value as Member['role'])}>
-            {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-          </select>) : ROLE_LABEL[m.role]}</td>
-        <td><Badge tone={m.is_active ? 'green' : 'gray'}>{m.is_active ? 'active' : 'deactivated'}</Badge></td>
-        <td className="whitespace-nowrap text-sm text-slate-500">{m.last_login_at ? fmtDate(m.last_login_at) : 'Never'}</td>
-        {isAdmin && <td className="whitespace-nowrap text-right">{!isSelf && (<>
-          <button className="btn-ghost" onClick={() => setResetting(resetting === null ? generatePassword() : null)}>Reset password</button>
-          <button className={`btn-ghost ${m.is_active ? 'text-rose-600' : ''}`}
+        <td data-label="Person"><div className="font-medium text-slate-900">{m.full_name || m.email}{isSelf && <span className="ml-2 text-sm font-normal text-slate-500">(you)</span>}</div>
+          {m.full_name && <div className="text-sm text-slate-500">{m.email}</div>}</td>
+        <td data-label="Role">{isAdmin && !isSelf && roles.length > 1 ? (
+          <Select label={`Role for ${m.email}`} size="sm" className="min-w-52" value={m.role} onChange={(r) => onRole(r as Member['role'])}
+            options={roles.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />) : ROLE_LABEL[m.role]}</td>
+        <td data-label="Status"><Badge tone={m.is_active ? 'green' : 'gray'}>{m.is_active ? 'active' : 'deactivated'}</Badge></td>
+        <td data-label="Last sign-in" className="whitespace-nowrap text-slate-500">{m.last_login_at ? fmtDate(m.last_login_at) : 'Never'}</td>
+        {isAdmin && <td className="whitespace-nowrap text-right">{!isSelf && (<span className="inline-flex gap-1.5">
+          <button className="btn-ghost btn-sm" onClick={() => setResetting(resetting === null ? generatePassword() : null)}>Reset password</button>
+          <button className={`btn-ghost btn-sm ${m.is_active ? 'text-rose-600' : ''}`}
             onClick={() => (!m.is_active || confirm(`Deactivate ${m.email}? They are signed out at once.`)) && onActive(!m.is_active)}>
             {m.is_active ? 'Deactivate' : 'Reactivate'}</button>
-        </>)}</td>}
+        </span>)}</td>}
       </tr>
       {resetting !== null && (
         <tr><td colSpan={5}>
